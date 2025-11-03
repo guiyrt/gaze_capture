@@ -1,5 +1,3 @@
-# src/gaze_capture/sinks/http.py
-
 import asyncio
 import logging
 from asyncio import Queue, Semaphore

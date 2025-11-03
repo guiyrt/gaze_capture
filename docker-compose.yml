@@ -8,8 +8,8 @@ services:
       - "host.docker.internal:host-gateway"
 
     # --- Eye Tracker Access ---
-    #devices:
-    #  - "/dev/udev/tobii_pro_fusion:/dev/udev/tobii_pro_fusion"
+    devices:
+      - "/dev/udev/tobii_pro_fusion:/dev/udev/tobii_pro_fusion"
 
     # --- GUI Forwarding Configuration ---
     environment:

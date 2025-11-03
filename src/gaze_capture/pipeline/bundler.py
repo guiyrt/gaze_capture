@@ -1,5 +1,3 @@
-# src/gaze_capture/pipeline/bundler.py
-
 import asyncio
 import logging
 from asyncio import Queue

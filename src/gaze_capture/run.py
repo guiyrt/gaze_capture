@@ -1,13 +1,9 @@
-# src/gaze_capture/run.py
-
 import argparse
 import logging
 import sys
 
 from gaze_capture.app.bridge import AsyncioTkinterBridge
 from gaze_capture.app.main_window import GazeCaptureApp
-from gaze_capture.app.manager import PipelineManager
-from gaze_capture.app.tracker import TrackerController
 from gaze_capture.config import settings
 
 

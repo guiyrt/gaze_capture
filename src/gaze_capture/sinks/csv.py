@@ -1,5 +1,3 @@
-# src/gaze_capture/sinks/csv.py
-
 import asyncio
 import csv
 import logging

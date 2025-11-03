@@ -1,5 +1,3 @@
-# src/gaze_capture/sinks/base.py
-
 from abc import ABC, abstractmethod
 from asyncio import Queue
 from typing import Generic, TypeVar
