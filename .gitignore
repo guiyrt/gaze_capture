@@ -1,3 +1,10 @@
+# Recordings local data
+/recordings/*
+!/recordings/.gitkeep
+
+# Protobuf generated files
+*_pb2.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

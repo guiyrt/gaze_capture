@@ -1,0 +1,20 @@
+[project]
+name = "gaze-capture"
+version = "0.1.0"
+description = "A modular pipeline for acquiring, processing, and forwarding eye-tracking data."
+readme = "README.md"
+requires-python = "==3.10.*"
+dependencies = [
+    "aiohttp>=3.13.2",
+    "protobuf>=6.33.0",
+    "pydantic-settings>=2.11.0",
+    "screeninfo>=0.8.1",
+    "tobii-research>=2.1.0",
+]
+
+[project.gui-scripts]
+gaze-capture = "gaze_capture.run:main"
+
+[build-system]
+requires = ["uv_build>=0.9.6,<0.10.0"]
+build-backend = "uv_build"

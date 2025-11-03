@@ -1,0 +1,29 @@
+services:
+  recorder:
+    build: .
+    container_name: gaze_capture
+
+    # --- Allow outbound requests to localhost ---
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # --- Eye Tracker Access ---
+    #devices:
+    #  - "/dev/udev/tobii_pro_fusion:/dev/udev/tobii_pro_fusion"
+
+    # --- GUI Forwarding Configuration ---
+    environment:
+      - DISPLAY=${DISPLAY}
+      - GAZE_HTTP_SINK__SERVER_URL=http://host.docker.internal:8000/api/gaze
+    
+    # --- Volumes ---
+    volumes:
+      # For communicating with the X server
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # For authenticating with the X server
+      - ~/.Xauthority:/root/.Xauthority:ro
+      # Symlinks to devices mounted with udev
+      - /dev/udev:/dev/udev
+      
+      # --- Data Persistence ---
+      - ./recordings:/app/recordings
