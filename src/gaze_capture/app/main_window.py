@@ -31,7 +31,7 @@ class GazeCaptureApp(tk.Tk):
     def __init__(self, bridge: AsyncioTkinterBridge, is_dummy_mode: bool = False):
         super().__init__()
         self.title("Gaze Capture")
-        self.geometry("350x550")
+        self.geometry("350x650")
 
         self.bridge = bridge
         self.pipeline_manager = PipelineManager(use_dummy_source=is_dummy_mode)
@@ -45,6 +45,10 @@ class GazeCaptureApp(tk.Tk):
         self.participant_id: Optional[str] = None
         self.participant_dir: Optional[Path] = None
         self.is_calibrated: bool = False
+
+        self.csv_sink_enabled = tk.BooleanVar(value=("csv" in settings.pipeline.enabled_sinks))
+        self.http_sink_enabled = tk.BooleanVar(value=("http" in settings.pipeline.enabled_sinks))
+        self.screenrec_enabled = tk.BooleanVar(value=settings.pipeline.enable_screen_recording)
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -89,7 +93,7 @@ class GazeCaptureApp(tk.Tk):
         self.set_participant_button.pack(pady=5, fill="x")
 
         # Calibration
-        calib_frame = tk.LabelFrame(self, text="1. Calibration", padx=10, pady=10)
+        calib_frame = tk.LabelFrame(self, text="2. Calibration", padx=10, pady=10)
         calib_frame.pack(padx=10, pady=10, fill="x")
         self.start_calib_button = tk.Button(calib_frame, text="Start New Calibration", command=partial(self.run_coro_from_ui, self.start_calibration))
         self.start_calib_button.pack(pady=5, fill="x")
@@ -97,15 +101,22 @@ class GazeCaptureApp(tk.Tk):
         self.check_calib_button.pack(pady=5, fill="x")
 
         # Data Sinks Configuration
-        sink_frame = tk.LabelFrame(self, text="2. Data Sinks", padx=10, pady=10)
+        sink_frame = tk.LabelFrame(self, text="3. Data Sinks", padx=10, pady=10)
         sink_frame.pack(padx=10, pady=10, fill="x")
-        self.csv_sink_enabled = tk.BooleanVar(value=("csv" in settings.pipeline.enabled_sinks))
-        self.http_sink_enabled = tk.BooleanVar(value=("http" in settings.pipeline.enabled_sinks))
         tk.Checkbutton(sink_frame, text="Save to CSV File", variable=self.csv_sink_enabled).pack(anchor="w")
         tk.Checkbutton(sink_frame, text="Send via HTTP", variable=self.http_sink_enabled).pack(anchor="w")
 
+        # Screen Recording
+        screenrec_frame = tk.LabelFrame(self, text="4. Screen Recording", padx=10, pady=10)
+        screenrec_frame.pack(padx=10, pady=10, fill="x")
+        tk.Checkbutton(
+            screenrec_frame,
+            text="Enable Screen Recording",
+            variable=self.screenrec_enabled
+        ).pack(anchor="w")
+
         # Recording
-        record_frame = tk.LabelFrame(self, text="3. Recording", padx=10, pady=10)
+        record_frame = tk.LabelFrame(self, text="5. Recording", padx=10, pady=10)
         record_frame.pack(padx=10, pady=10, fill="x")
         self.record_button = tk.Button(record_frame, text="Start Recording", command=partial(self.run_coro_from_ui, self.start_recording))
         self.record_button.pack(pady=5, fill="x")
@@ -265,7 +276,8 @@ class GazeCaptureApp(tk.Tk):
         await self.pipeline_manager.start(
             tracker=self.tracker_controller.eyetracker, 
             participant_dir=self.participant_dir, 
-            enabled_sinks=enabled_sinks
+            enabled_sinks=enabled_sinks,
+            enable_screen_recording=self.screenrec_enabled.get()
         )
         await self.run_on_main_thread(messagebox.showinfo, "Recording", f"Recording started for participant {self.participant_id}.")
 

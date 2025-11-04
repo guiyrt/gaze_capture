@@ -35,6 +35,10 @@ class PipelineSettings(BaseModel):
         default=["csv", "http"],
         description="Which sinks to activate during recording."
     )
+    enable_screen_recording: bool = Field(
+        default=True,
+        description="Enables screen recording using ffmpeg during the session."
+    )
     bundle_size: int = Field(
         default=60, gt=0, description="Number of samples to collect per bundle."
     )

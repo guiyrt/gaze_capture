@@ -13,8 +13,8 @@ from gaze_capture.models.gaze import GazeData
 from gaze_capture.pipeline.bundler import Bundler
 from gaze_capture.pipeline.distributor import Distributor
 from gaze_capture.protos import gaze_pb2
-from gaze_capture.sinks.csv import CSVSink
-from gaze_capture.sinks.http import HTTPSink
+from gaze_capture.sinks import CSVSink, HTTPSink
+from gaze_capture.recorders import ScreenRecorder
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,7 @@ class PipelineManager:
         """
         self._tasks: List[asyncio.Task] = []
         self._source: Optional[GazeSource] = None
+        self._managed_recorders: List[ScreenRecorder] = []
         self._use_dummy_source = use_dummy_source
 
     @property
@@ -49,7 +50,8 @@ class PipelineManager:
         self,
         tracker: tr.EyeTracker,
         participant_dir: Path,
-        enabled_sinks: List[str]
+        enabled_sinks: List[str],
+        enable_screen_recording: bool
     ) -> None:
         """
         Constructs and starts all pipeline components as asyncio tasks.
@@ -64,10 +66,10 @@ class PipelineManager:
             logger.warning("Pipeline is already running. Stop it before starting again.")
             return
 
-        logger.info(f"Building and starting data pipeline with sinks: {enabled_sinks}")
-        stop_event = Event()
+        logger.info(f"Building pipeline. Sinks: {enabled_sinks}, Screen Recording: {enable_screen_recording}")
 
-        # 1. Create the primary queue for data from the source.
+        # --- Data Pipeline Setup
+        stop_event = Event()
         source_q = Queue[GazeData](maxsize=1000)
 
         # 2. Instantiate the appropriate GazeSource.
@@ -79,12 +81,12 @@ class PipelineManager:
             self._source.tracker = tracker
 
         distributor_output_queues = []
-        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
         # 3. Dynamically build the sink branches of the pipeline.
         if "csv" in enabled_sinks:
             csv_sink_q = Queue[GazeData]()
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            csv_path = participant_dir / f"gaze_data_{timestamp}.csv"
+            csv_path = participant_dir / f"gaze_{timestamp}.csv"
             csv_sink = CSVSink(csv_sink_q, csv_path)
 
             self._tasks.append(asyncio.create_task(csv_sink.run()))
@@ -115,11 +117,15 @@ class PipelineManager:
             ])
             distributor_output_queues.append(bundler_input_q)
             logger.info(f"HTTP sink enabled. Sending to: {settings.http_sink.server_url}")
+        
+        if enable_screen_recording:
+            recorder = ScreenRecorder(participant_dir / f"screen_{timestamp}.mp4")
+            self._managed_recorders.append(recorder)
+            self._tasks.append(asyncio.create_task(recorder.run()))
+            logger.info("Screen recorder enabled.")
 
         # 4. Create the Distributor to fan-out data to all active sinks.
         distributor = Distributor(source_q, distributor_output_queues)
-
-        # 5. Add the source and distributor tasks to be managed.
         self._tasks.extend([
             asyncio.create_task(self._source.run()),
             asyncio.create_task(distributor.run())
@@ -141,9 +147,12 @@ class PipelineManager:
         if self._source:
             # This signals the GazeSource to stop producing new data.
             await self._source.stop()
+
+        # Gracefully stop independent recorders (ffmpeg)
+        for recorder in self._managed_recorders:
+            await recorder.stop()
         
-        # Allow a grace period for in-flight data to be processed by sinks.
-        # This is especially important for the Bundler.
+        # Allow grace period for data sinks to drain
         grace_period = settings.pipeline.max_bundle_interval_s + 0.5
         logger.info(f"Waiting {grace_period:.1f}s for queues to drain...")
         await asyncio.sleep(grace_period)
@@ -157,5 +166,6 @@ class PipelineManager:
         await asyncio.gather(*self._tasks, return_exceptions=True)
         
         self._tasks.clear()
+        self._managed_recorders.clear()
         self._source = None
         logger.info("Pipeline stopped successfully.")

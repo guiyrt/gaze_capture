@@ -2,6 +2,9 @@ services:
   recorder:
     build: .
     container_name: gaze_capture
+    
+    # Allow the container to use the host's shared memory, required for performant X11 screen capture.
+    ipc: host
 
     # --- Allow outbound requests to localhost ---
     extra_hosts:

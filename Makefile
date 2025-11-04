@@ -30,4 +30,8 @@ protoc:
 
 .PHONY: dummy
 dummy:
-	docker compose run --rm recorder uv run gaze-capture --dummy
+	docker compose run --rm --build recorder uv run gaze-capture --dummy
+
+.PHONY: bash
+dockerbash:
+	docker compose run --rm --build recorder /bin/bash

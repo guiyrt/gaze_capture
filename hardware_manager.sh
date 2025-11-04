@@ -47,17 +47,9 @@ if [ "$NEEDS_UPDATE" = true ]; then
 
     echo "Reloading udev rules..."
     udevadm control --reload-rules
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to reload udev rules." >&2
-        exit 1
-    fi
 
     echo "Triggering udev to apply new rules to connected devices..."
     udevadm trigger
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to trigger udev." >&2
-        exit 1
-    fi
 
     echo "Rule applied successfully."
 fi
