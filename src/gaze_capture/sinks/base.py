@@ -1,37 +1,35 @@
 from abc import ABC, abstractmethod
-from asyncio import Queue
-from typing import Generic, TypeVar
+from ..models import GazeData
 
-# Define a generic type variable for the data the sink will consume.
-InputType = TypeVar("InputType")
-
-
-class Sink(ABC, Generic[InputType]):
+class GazeSink(ABC):
     """
     Abstract Base Class for all data sinks.
-
-    A Sink is a runnable component that consumes data of a specific type
-    from an input queue and forwards it to a final destination (e.g., an
-    HTTP server, a file, a database). This class is generic, allowing
-    implementations to specify the type of data they expect.
+    Provides common context manager logic for simplified lifecycle management.
     """
 
-    def __init__(self, input_queue: Queue[InputType]):
-        """
-        Initializes the Sink with its input queue.
-
-        Args:
-            input_queue: The asyncio queue from which the sink will consume items.
-        """
-        self._input_queue = input_queue
+    @abstractmethod
+    async def start(self) -> None:
+        """Initialize sink resources."""
+        pass
 
     @abstractmethod
-    async def run(self) -> None:
+    async def send(self, data: GazeData) -> None:
         """
-        Starts the data consumption and sending process.
+        Push data to the sink. 
+        Must be non-blocking to the caller.
+        """
+        pass
 
-        This method should run continuously, taking data from the input queue
-        and processing it until the task is cancelled. It must be
-        implemented by all concrete subclasses.
-        """
-        raise NotImplementedError
+    @abstractmethod
+    async def close(self) -> None:
+        """Clean up sink resources."""
+        pass
+
+    # --- Shared Logic (Code Reuse) ---
+
+    async def __aenter__(self):
+        await self.start()
+        return self
+
+    async def __aexit__(self, *_):
+        await self.close()

@@ -2,32 +2,38 @@ from abc import ABC, abstractmethod
 from asyncio import Queue, Event
 from typing import final
 
-from gaze_capture.models.gaze import GazeData
-
+from ..models import GazeData
+from ..types import _END, EndToken
 
 class GazeSource(ABC):
     """
-    Abstract Base Class for all gaze data sources.
-
-    A GazeSource is a runnable component that acquires gaze data from a specific
-    origin (e.g., hardware, file) and puts `GazeData` objects into an
-    output queue for further processing.
+    Abstract Base Class for Data Acquisition.
+    Responsible for bridging Hardware Callbacks -> Asyncio Queue.
     """
-
-    def __init__(self, output_queue: Queue[GazeData], stop_event: Event):
-        self._output_queue = output_queue
-        self._stop_event = stop_event
+    def __init__(self, screen_width: int, screen_height: int):
+        self.output_queue: Queue[GazeData | EndToken] = Queue()
+        self._stop_event = Event()
+        self.screen_width = screen_width
+        self.screen_height = screen_height
 
     @abstractmethod
+    async def _collect_data(self) -> None:
+        """
+        Connects to hardware/stream and keeps running until stopped.
+        Should handle its own cleanup/unsubscribing in a finally block.
+        """
+        ...
+
+    @final
     async def run(self) -> None:
         """
-        Starts the data acquisition process.
-
-        This method should run continuously, acquiring data and placing it
-        into the output queue until the `stop_event` is set. It must be
-        implemented by all concrete subclasses.
+        Public entry point. Wraps run() to guarantee End-of-Stream signal.
         """
-        raise NotImplementedError
+        try:
+            await self._collect_data()
+        finally:
+            await self.output_queue.put(_END)
+
 
     @final
     async def stop(self) -> None:

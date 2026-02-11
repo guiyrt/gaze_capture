@@ -1,104 +1,69 @@
+import time
+import math
 import asyncio
 import logging
-import math
-import time
 
 from gaze_capture.models.gaze import GazeData
 from .base import GazeSource
 
 logger = logging.getLogger(__name__)
 
-
-class DummyGazeSource(GazeSource):
+class DummySource(GazeSource):
     """
-    A GazeSource that simulates gaze data for development and testing.
-
-    This class generates a continuous stream of `GazeData` objects at a
-    specified frequency, following a predictable pattern (a circular path).
-    It is useful for developing and testing the rest of the pipeline without
-    requiring a physical eye tracker.
+    Simulated Source for Testing.
     """
+    def __init__(self, screen_width: int, screen_height: int, frequency: int = 120):
+        super().__init__(screen_width, screen_height)
+        self.frequency = frequency
 
-    def __init__(
-        self,
-        *args,
-        frequency: int = 120,
-        radius: float = 0.2,
-        center: tuple[float, float] = (0.5, 0.5),
-        speed: float = 0.5,
-        **kwargs,
-    ):
-        """
-        Initializes the DummyGazeSource.
+    async def _collect_data(self) -> None:
+        logger.info(f"Starting Dummy Source @ {self.frequency}Hz")
+        interval_ns = 1_000_000_000 // self.frequency
+        t0_ns = time.monotonic_ns()
+        frame = 0
+        
+        # Center of screen
+        cx, cy = 0.5, 0.5
+        radius = 0.3
 
-        Args:
-            frequency: The frequency in Hz to emit gaze data.
-            radius: The radius of the circular path for the gaze point.
-            center: The (x, y) center of the circular path.
-            speed: The speed of the gaze point's movement along the circle
-                   (in revolutions per second).
-        """
-        super().__init__(*args, **kwargs)
-        if frequency <= 0:
-            raise ValueError("Frequency must be positive.")
+        while not self._stop_event.is_set():
+            now_ns = time.monotonic_ns()
+            elapsed_s = (now_ns - t0_ns) / 1e9
+            
+            # Circle Math
+            angle = elapsed_s * 2 * math.pi * 0.5
+            x = cx + radius * math.cos(angle)
+            y = cy + radius * math.sin(angle)
+            
+            # Pixels
+            x_px = int(x * self.screen_width)
+            y_px = int(y * self.screen_height)
 
-        self._frequency = frequency
-        self._interval_s = 1.0 / self._frequency
-        self._radius = radius
-        self._center_x, self._center_y = center
-        self._speed = speed  # Revolutions per second
-
-        logger.info(
-            f"DummyGazeSource initialized to run at {self._frequency} Hz."
-        )
-
-    async def run(self) -> None:
-        """
-        Main execution loop for the dummy source.
-
-        Generates and queues GazeData at the configured frequency until the
-        stop event is set.
-        """
-        start_time = time.monotonic()
-        frame_counter = 0
-
-        logger.info("Starting dummy gaze data stream...")
-        try:
-            while not self._stop_event.is_set():
-                # --- Calculate precise timing for this frame ---
-                target_time = start_time + (frame_counter * self._interval_s)
-
-                # --- Generate simulated data ---
-                current_loop_time = time.monotonic() - start_time
-                system_time_stamp = time.monotonic_ns() // 1000
-
-                # Simulate a device clock that started at 0 and increments steadily
-                device_time_stamp = int(current_loop_time * 1_000_000)
-
-                # Calculate position in a circular path
-                angle = current_loop_time * self._speed * 2 * math.pi
-                gaze_x = self._center_x + self._radius * math.cos(angle)
-                gaze_y = self._center_y + self._radius * math.sin(angle)
-
-                # Create the data model, slightly offsetting eyes for realism
-                model = GazeData(
-                    device_time_stamp=device_time_stamp,
-                    system_time_stamp=system_time_stamp,
-                    left_gaze_point=(gaze_x - 0.01, gaze_y),
-                    right_gaze_point=(gaze_x + 0.01, gaze_y),
-                )
-
-                # --- Queue the data and wait for next frame ---
-                await self._output_queue.put(model)
-
-                # Sleep until the next frame's target time
-                sleep_duration = target_time - time.monotonic()
-                if sleep_duration > 0:
-                    await asyncio.sleep(sleep_duration)
-
-                frame_counter += 1
-
-        except asyncio.CancelledError:
-            logger.info("Dummy source run task was cancelled.")
-        finally:
-            logger.info("DummyGazeSource has stopped.")
+            model = GazeData(
+                epoch_timestamp_ms=int(time.time() * 1_000),
+                device_timestamp_us=(now_ns - t0_ns) // 1_000,
+                system_timestamp_us=now_ns // 1_000,
+                mid_x_px=x_px,
+                mid_y_px=y_px,
+                mid_x=x,
+                mid_y=y,
+                left_x=x,
+                left_y=y,
+                right_x=x,
+                right_y=y,
+                left_pupil=None,
+                right_pupil=None,
+                left_origin=None,
+                right_origin=None,
+                left_3d= None,
+                right_3d=None,
+            )
+            
+            await self.output_queue.put(model)
+            
+            # Sleep
+            frame += 1
+            target_ns = t0_ns + (frame * interval_ns)
+            delay_s = (target_ns - time.monotonic_ns()) / 1e9
+            if delay_s > 0:
+                await asyncio.sleep(delay_s)

@@ -2,9 +2,7 @@ services:
   recorder:
     build: .
     container_name: gaze_capture
-    
-    # Allow the container to use the host's shared memory, required for performant X11 screen capture.
-    ipc: host
+    network_mode: host
 
     # --- Allow outbound requests to localhost ---
     extra_hosts:
@@ -17,8 +15,17 @@ services:
     # --- GUI Forwarding Configuration ---
     environment:
       - DISPLAY=${DISPLAY}
-      - GAZE_HTTP_SINK__SERVER_URL=http://host.docker.internal:8000/api/gaze
-    
+      - GAZE__DATA_DIR=/app/recordings
+      - GAZE__ZMQ__HOST=tcp://*:5555
+      - GAZE__LOGGING__LEVEL=INFO
+
+      # Screen dimensions
+      - GAZE__DISPLAY_AREA__WIDTH_MM=960
+      - GAZE__DISPLAY_AREA__HEIGHT_MM=560
+      - GAZE__DISPLAY_AREA__VERTICAL_OFFSET_MM=60
+      - GAZE__DISPLAY_AREA__HORIZONTAL_OFFSET_MM=0
+      - GAZE__DISPLAY_AREA__DEPTH_OFFSET_MM=0
+
     # --- Volumes ---
     volumes:
       # For communicating with the X server

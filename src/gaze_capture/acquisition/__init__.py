@@ -1,3 +1,3 @@
-from .tobii import TobiiGazeSource
-from .dummy import DummyGazeSource
+from .tobii import TobiiSource
+from .dummy import DummySource
 from .base import GazeSource

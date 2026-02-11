@@ -18,7 +18,7 @@ class AsyncioTkinterBridge:
 
     def __init__(self):
         """Initializes the bridge and the asyncio event loop."""
-        self._loop = asyncio.new_event_loop()
+        self.loop = asyncio.new_event_loop()
         self._thread = threading.Thread(
             target=self._run_loop,
             name="AsyncioEventLoopThread",
@@ -28,11 +28,11 @@ class AsyncioTkinterBridge:
 
     def _run_loop(self) -> None:
         """The target function for the background thread."""
-        asyncio.set_event_loop(self._loop)
+        asyncio.set_event_loop(self.loop)
         try:
-            self._loop.run_forever()
+            self.loop.run_forever()
         finally:
-            self._loop.close()
+            self.loop.close()
             logger.info("Asyncio event loop closed.")
 
     def start(self) -> None:
@@ -52,7 +52,7 @@ class AsyncioTkinterBridge:
 
         logger.info("Stopping asyncio event loop...")
         # call_soon_threadsafe is the key to safe cross-thread communication.
-        self._loop.call_soon_threadsafe(self._loop.stop)
+        self.loop.call_soon_threadsafe(self.loop.stop)
         # Wait for the thread to finish its cleanup.
         self._thread.join()
         self._is_running = False
@@ -74,9 +74,4 @@ class AsyncioTkinterBridge:
         """
         if not self._is_running:
             raise RuntimeError("Cannot schedule coroutine, the bridge is not running.")
-        return asyncio.run_coroutine_threadsafe(coro, self._loop)
-
-    @property
-    def loop(self) -> asyncio.AbstractEventLoop:
-        """Provides access to the underlying asyncio event loop."""
-        return self._loop
+        return asyncio.run_coroutine_threadsafe(coro, self.loop)
