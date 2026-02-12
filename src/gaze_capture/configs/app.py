@@ -14,6 +14,8 @@ class DisplayAreaSettings(BaseModel):
     Physical dimensions and position of the display relative to the tracker.
     All measurements are in millimeters (mm).
     """
+    height_px: int = Field(2160)
+    width_px: int = Field(3840)
     width_mm: float = Field(344.0, description="Width of the active display area.")
     height_mm: float = Field(193.0, description="Height of the active display area.")
     vertical_offset_mm: float = Field(60.0, description="Vertical distance from tracker center to bottom edge of screen.")

@@ -33,15 +33,13 @@ class TobiiController(GazeTrackerController):
     async def connect(self, display_settings: DisplayAreaSettings) -> bool:
         try:
             # 1. Screen Discovery
-            monitors = await asyncio.to_thread(get_monitors)
-            primary = monitors[0]
-            self.screen_width, self.screen_height = primary.width, primary.height
+            self.screen_width, self.screen_height = display_settings.width_px, display_settings.height_px
 
             # 2. Tracker Discovery
             trackers = await asyncio.to_thread(tr.find_all_eyetrackers)
             if not trackers:
                 return False
-            
+
             self.tracker = trackers[0]
             
             # 3. Apply Display Geometry

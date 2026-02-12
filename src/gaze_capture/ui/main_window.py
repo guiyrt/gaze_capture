@@ -82,7 +82,7 @@ class GazeCaptureApp(tk.Tk):
         self.set_state(AppState.CALIBRATING)
         
         # Create the View
-        view = TkinterCalibrationView(self)
+        view = TkinterCalibrationView(self, self.settings.display_area.width_px, self.settings.display_area.height_px)
         
         # Delegate to Controller
         success = await self.controller.calibrate(

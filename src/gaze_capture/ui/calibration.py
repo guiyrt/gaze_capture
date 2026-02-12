@@ -5,8 +5,6 @@ from tkinter import Toplevel, Canvas
 from typing import Optional, Any, Callable
 from functools import wraps
 
-from screeninfo import get_monitors
-
 logger = logging.getLogger(__name__)
 
 def require_window(func):
@@ -23,7 +21,7 @@ class TkinterCalibrationView:
     Manages the Fullscreen Calibration Window.
     Bridges background Controller calls to the Main Thread via root.after().
     """
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, width, height):
         # We need the root to schedule updates on the main thread
         self._root = root
         
@@ -32,8 +30,8 @@ class TkinterCalibrationView:
         self._canvas: Optional[Canvas] = None
         
         # State
-        self._width: int = 0
-        self._height: int = 0
+        self._width: int = width
+        self._height: int = height
 
     # --- Async Public Interface (Called by Controller) ---
 
@@ -85,9 +83,6 @@ class TkinterCalibrationView:
 
     def _create_window(self) -> None:
         if self._window: return
-        
-        m = get_monitors()[0]
-        self._width, self._height = m.width, m.height
 
         self._window = Toplevel(self._root)
         self._window.attributes("-fullscreen", True)
