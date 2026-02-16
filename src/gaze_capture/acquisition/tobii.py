@@ -1,42 +1,13 @@
-import time
 import asyncio
 import logging
 from typing import Any, Final
 import tobii_research as tr
 
-from gaze_capture.models.gaze import GazeData
 from .base import GazeSource
-from ..types import _END, EndToken 
+from ..models.gaze import GazeData
+from ..utils.clock import TimeProbe
 
 logger = logging.getLogger(__name__)
-
-class TimeProbe:
-    __slots__ = ("latency", "offset")
-
-    def __init__(self):
-        before: int = tr.get_system_time_stamp()
-        utc: int = time.time_ns()
-        after: int = tr.get_system_time_stamp()
-
-        # Use integer division to keep timestamp as int
-        system_timestamp_at_utc: int = (before + after) // 2
-
-        # Latency in us
-        self.latency: int = after - before
-        # Offset is ns - (us * 1000), result is ns (int)
-        self.offset: int = utc - (system_timestamp_at_utc * 1_000)
-
-    def to_utc_ms(self, system_timestamp_us: int) -> int:
-        # Convert timestamp from us to ns to apply offset, then final timestamp from ns to ms
-        return (system_timestamp_us * 1_000 + self.offset) // 1_000_000
-
-    # Sort by latency, lower is better
-    def __lt__(self, other: "TimeProbe") -> bool:
-        return self.latency < other.latency
-
-    def __eq__(self, other: "TimeProbe") -> bool:
-        return self.latency == other.latency
-
 
 class TobiiSource(GazeSource):
     """
@@ -117,7 +88,7 @@ class TobiiSource(GazeSource):
             logger.error(e)
 
     async def _collect_data(self) -> None:
-        self._time_offset = min(TimeProbe() for _ in range(self._N_TIME_PROBES))
+        self._time_offset = min(TimeProbe(tr.get_system_time_stamp) for _ in range(self._N_TIME_PROBES))
 
         try:
             logger.info(f"Subscribing to {self.tracker.device_name} (Res: {self.screen_width}x{self.screen_height})")

@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import List
 
-from .configs import AppSettings
-from .sinks import GazeSink, ParquetSink, ZMQSink
+from ..configs import AppSettings
+from ..sinks import GazeSink, ParquetSink, ZMQSink
 
 def create_session_sinks(
     settings: AppSettings, 

@@ -1,15 +1,13 @@
 import asyncio
 import json
-import inspect
 from abc import ABC, abstractmethod
 from pathlib import Path
 from functools import wraps
 import logging
 
-from ..app.bridge import AsyncioTkinterBridge
 from ..acquisition import GazeSource
 from ..configs import CalibrationSettings, DisplayAreaSettings
-from ..ui import TkinterCalibrationView
+from ..core.protocols import CalibrationView
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +29,14 @@ class GazeTrackerController(ABC):
     Abstract Hardware Manager.
     AUTHORITY on: Connection, Calibration, and Screen Geometry.
     """
-    def __init__(self, bridge: AsyncioTkinterBridge):
-        self._bridge = bridge
-        
+    def __init__(self,):
         # Geometry Authority
         self.screen_width: int = 0
         self.screen_height: int = 0
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
-        return self._bridge.loop
+        return asyncio.get_running_loop()
 
     @abstractmethod
     def create_source(self) -> GazeSource:
@@ -76,7 +72,7 @@ class GazeTrackerController(ABC):
         """Loads binary calibration from disk and applies it to hardware."""
         ...
 
-    async def show_calibration_results(self, folder: Path, view: TkinterCalibrationView) -> bool:
+    async def show_calibration_results(self, folder: Path, view: CalibrationView) -> bool:
         """
         Loads the JSON report from disk and displays it on the provided view.
         Returns False if no calibration exists.

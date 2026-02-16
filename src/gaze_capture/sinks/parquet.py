@@ -9,8 +9,8 @@ from typing import Final, Optional
 
 from .base import GazeSink
 from ..models import GazeData
-from ..utils import ThrottledLogger
-from ..types import EndToken, _END
+from ..utils.logging import ThrottledLogger
+from ..utils.types import EndToken, _END
 
 logger = logging.getLogger(__name__)
 

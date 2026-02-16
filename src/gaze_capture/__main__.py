@@ -1,50 +1,36 @@
-import sys
+import asyncio
+import threading
 import logging
-from gaze_capture.app.bridge import AsyncioTkinterBridge
-from gaze_capture.ui.main_window import GazeCaptureApp
+
+from gaze_capture.core.manager import SessionManager
+from gaze_capture.ui import GazeCaptureApp
 from gaze_capture.configs.app import AppSettings
 from gaze_capture.controllers import TobiiController, DummyController
 
 def main():
-    # 1. Load Configuration
+    settings = AppSettings()
+    logging.basicConfig(level=settings.logging.level, format=settings.logging.format)
+    logger = logging.getLogger(__name__)
+
+    # Create the high-performance background loop
+    loop = asyncio.new_event_loop()
+    
+    # Start the loop in a dedicated thread
+    thread = threading.Thread(target=loop.run_forever, name="AsyncioEngine", daemon=True)
+    thread.start()
+
+    # Instantiate components
+    controller = TobiiController() if not settings.use_dummy_mode else DummyController()
+    manager = SessionManager(controller, settings, loop)
+
+    # Start UI on the Main Thread
+    app = GazeCaptureApp(manager)
+    
     try:
-        settings = AppSettings()
-    except Exception as e:
-        print(f"Configuration Error: {e}")
-        sys.exit(1)
-
-    # 2. Setup Logging
-    logging.basicConfig(
-        level=settings.logging.level,
-        format=settings.logging.format,
-        stream=sys.stdout
-    )
-    logger = logging.getLogger("main")
-    logger.info(f"Starting Gaze Capture v{settings.__version__}")
-
-    # 3. Setup Infrastructure
-    bridge = AsyncioTkinterBridge()
-    bridge.start()
-
-    # 4. Dependency Injection (Controller Strategy)
-    if settings.use_dummy_mode:
-        logger.warning("Initializing DUMMY Controller (Simulation Mode)")
-        controller = DummyController(bridge)
-    else:
-        logger.info("Initializing TOBII Controller")
-        controller = TobiiController(bridge)
-
-    # 5. Launch UI
-    try:
-        app = GazeCaptureApp(bridge, controller, settings)
         app.mainloop()
-    except Exception:
-        logger.exception("Fatal Application Error")
     finally:
-        # Emergency cleanup if UI crashes without closing
-        logger.info("Shutdown sequence initiated.")
-        if bridge._is_running:
-            bridge.stop()
+        loop.call_soon_threadsafe(loop.stop)
+        logger.info("Application closed.")
 
 if __name__ == "__main__":
     main()

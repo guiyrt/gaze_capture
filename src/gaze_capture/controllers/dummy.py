@@ -5,13 +5,13 @@ from pathlib import Path
 from .base import GazeTrackerController
 from ..acquisition import DummySource
 from ..configs import DisplayAreaSettings, CalibrationSettings
-from ..ui import TkinterCalibrationView
+from ..core.protocols import CalibrationView
 
 logger = logging.getLogger(__name__)
 
 class DummyController(GazeTrackerController):
-    def __init__(self, bridge):
-        super().__init__(bridge)
+    def __init__(self):
+        super().__init__()
         self._connected = False
         self._calibrated = False
 
@@ -25,7 +25,7 @@ class DummyController(GazeTrackerController):
 
     async def connect(self, settings: DisplayAreaSettings) -> bool:
         await asyncio.sleep(0.5) # Simulate discovery
-        self.screen_width, self.screen_height = 3840, 2160
+        self.screen_width, self.screen_height = settings.width_px, settings.height_px
         self._connected = True
         return True
 
@@ -39,8 +39,8 @@ class DummyController(GazeTrackerController):
     async def calibrate(
         self,
         save_folder: Path,
-        calib_settings: CalibrationSettings, 
-        view: TkinterCalibrationView
+        calib_settings: CalibrationSettings,
+        view: CalibrationView
     ) -> bool:
         try:
             await view.open()

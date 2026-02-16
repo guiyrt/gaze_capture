@@ -9,7 +9,7 @@ class AppState(Enum):
     behaves consistently and predictably.
     """
     INITIALIZING = auto()  # Application is starting, searching for tracker.
-    NO_TRACKER = auto()    # Initialization failed, no tracker found.
-    IDLE = auto()          # Tracker found, ready for calibration or recording.
-    CALIBRATING = auto()   # The calibration window is active.
-    RECORDING = auto()     # The data pipeline is active and recording data.
+    NO_TRACKER = auto() # Initialization failed, no tracker found.
+    IDLE = auto() # Tracker found, ready for calibration or recording.
+    CALIBRATING = auto() # The calibration window is active.
+    RECORDING = auto() # The data pipeline is active and recording data.

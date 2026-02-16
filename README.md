@@ -1,6 +1,25 @@
 # gaze_capture
 Record, process and transmit gaze data.
 
+TODO:
+- subscribe to tobii notifications (connection lost, restored, display area changed, calibration mode, etc..)
+- have watchdog in runner to make sure everything is running, and stop if not
+
+
+
+>>> display_area.height
+527.1767931231888
+>>> display_area.width
+937.2031860351562
+>>> display_area.top_left
+(-475.43536376953125, 503.5028076171875, 172.61825561523438)
+>>> display_area.top_right
+(461.767822265625, 503.5028076171875, 172.61825561523438)
+>>> display_area.bottom_left
+(-475.43536376953125, 8.118664741516113, -7.686825275421143)
+>>> display_area.bottom_right
+(461.767822265625, 8.118664741516113, -7.686825275421143)
+
 
 # Disconnect eye-tracker from Linux host
 systemctl stop tobii-runtime-TOBIIPROFUSIONC.service

@@ -4,5 +4,4 @@ class EndToken:
 
     def __repr__(self) -> str:
         return "<EndToken>"
-
 _END = EndToken()

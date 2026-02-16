@@ -5,6 +5,8 @@ from tkinter import Toplevel, Canvas
 from typing import Optional, Any, Callable
 from functools import wraps
 
+from ..core.protocols import CalibrationView
+
 logger = logging.getLogger(__name__)
 
 def require_window(func):
@@ -16,12 +18,12 @@ def require_window(func):
         return func(self, *args, **kwargs)
     return wrapper
 
-class TkinterCalibrationView:
+class CalibrationWindow(CalibrationView):
     """
     Manages the Fullscreen Calibration Window.
     Bridges background Controller calls to the Main Thread via root.after().
     """
-    def __init__(self, root: tk.Tk, width, height):
+    def __init__(self, root: tk.Tk, width: int, height: int):
         # We need the root to schedule updates on the main thread
         self._root = root
         

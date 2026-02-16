@@ -1,195 +1,159 @@
 import logging
-import asyncio
 import tkinter as tk
 from tkinter import messagebox, simpledialog
-from pathlib import Path
-from typing import Optional, Callable
+from typing import Callable, Any
 
-from ..app.bridge import AsyncioTkinterBridge
-from ..controllers import GazeTrackerController
-from ..runner import GazeRunner
-from .calibration import TkinterCalibrationView
-from ..app.state import AppState
-from ..configs.app import AppSettings
-from ..factories import create_session_sinks
+from .calibration import CalibrationWindow 
+from ..core.manager import SessionManager
+from ..core.state import AppState
 
 logger = logging.getLogger(__name__)
 
 class GazeCaptureApp(tk.Tk):
-    def __init__(
-        self, 
-        bridge: AsyncioTkinterBridge, 
-        controller: GazeTrackerController,
-        settings: AppSettings
-    ):
+    """
+    Thin UI Layer (Presenter).
+    Responsibility: User input and visual state feedback.
+    Logic: Delegated entirely to SessionManager via run_task().
+    """
+    def __init__(self, manager: SessionManager):
         super().__init__()
-        self.bridge = bridge
-        self.controller = controller
-        self.settings = settings
+        self.manager = manager
         
-        self.title(f"Gaze Capture v{settings.__version__}")
-        self.geometry("350x500")
-        
-        # State
-        self.app_state: AppState = AppState.INITIALIZING
-        self.participant_id: Optional[str] = None
-        self.participant_dir: Optional[Path] = None
-        self.is_calibrated: bool = False
-        self.runner: Optional[GazeRunner] = None
+        self.title(f"Gaze Capture v{manager.settings.__version__}")
+        self.geometry("350x550")
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         
-        # Start connection process
-        self.after(100, lambda: self.run_async(self.startup_sequence))
+        # FIX: Use a lambda to call run_task. This ensures the coroutine is actually started.
+        self.after(100, lambda: self.manager.run_task(self._initialize_system()))
 
-    def run_async(self, coro_func: Callable, *args):
-        """Helper to fire-and-forget async tasks from UI events."""
-        self.bridge.run_coro_threadsafe(coro_func(*args))
+    # --- UI Thread Helper ---
+    def run_on_ui(self, func: Callable, *args: Any):
+        """Schedules a function to run on the Tkinter main thread."""
+        self.after(0, lambda: func(*args))
 
-    async def run_on_ui(self, func: Callable, *args):
-        """Helper to run sync UI updates from async thread."""
-        loop = asyncio.get_running_loop()
-        future = loop.create_future()
-        self.after(0, lambda: self._resolve_future(future, func, *args))
-        return await future
+    # --- Sync UI Event Handlers (Run on Main Thread) ---
 
-    def _resolve_future(self, future, func, *args):
-        try:
-            res = func(*args)
-            self.bridge.loop.call_soon_threadsafe(future.set_result, res)
-        except Exception as e:
-            self.bridge.loop.call_soon_threadsafe(future.set_exception, e)
+    def on_set_participant(self):
+        """Triggered by button. Dialogs must run on Main Thread."""
+        pid = simpledialog.askstring("Participant", "Enter Participant ID:")
+        if pid:
+            # Send the logic to the background thread
+            self.manager.run_task(self._async_set_participant(pid))
 
-    # --- Logic Flow ---
+    def on_calibrate(self):
+        """Triggered by button."""
+        self.manager.run_task(self._async_calibrate_flow())
 
-    async def startup_sequence(self):
-        self.set_state(AppState.INITIALIZING)
-        success = await self.controller.connect(self.settings.display_area)
+    def on_record_toggle(self):
+        """Triggered by button."""
+        self.manager.run_task(self._async_record_flow())
+
+    # --- Async Logic Flows (Run on Background Bridge Thread) ---
+
+    async def _initialize_system(self):
+        """Initial connection sequence."""
+        self.run_on_ui(self.set_ui_state, AppState.INITIALIZING)
+        
+        success = await self.manager.controller.connect(self.manager.settings.display_area)
         
         if success:
-            tracker_name = self.controller.tracker_name
-            await self.run_on_ui(messagebox.showinfo, "Connected", f"Connected to: {tracker_name}")
-            self.set_state(AppState.IDLE)
+            self.run_on_ui(self.set_ui_state, AppState.IDLE)
+            self.run_on_ui(messagebox.showinfo, "Connected", f"Tracker: {self.manager.tracker_name}")
         else:
-            self.set_state(AppState.NO_TRACKER)
-            await self.run_on_ui(messagebox.showerror, "Error", "Eye tracker not found.")
+            self.run_on_ui(self.set_ui_state, AppState.NO_TRACKER)
+            self.run_on_ui(messagebox.showerror, "Error", "No eye tracker found.")
 
-    async def start_calibration(self):
-        if not self.participant_dir:
-            return
+    async def _async_set_participant(self, pid: str):
+        """Logic for setting participant and loading calibration."""
+        is_calibrated = await self.manager.set_participant(pid)
+        
+        # Logic to update UI label
+        def update_label():
+            status = "Calibrated" if is_calibrated else "Not Calibrated"
+            self.lbl_part.config(text=f"ID: {pid}\n({status})")
+            self.set_ui_state(AppState.IDLE)
             
-        self.set_state(AppState.CALIBRATING)
+        self.run_on_ui(update_label)
+
+    async def _async_calibrate_flow(self):
+        """Orchestrates the calibration UI and hardware."""
+        self.run_on_ui(self.set_ui_state, AppState.CALIBRATING)
         
-        # Create the View
-        view = TkinterCalibrationView(self, self.settings.display_area.width_px, self.settings.display_area.height_px)
+        # Instantiate the View (Tkinter part happens inside view.open)
+        view = CalibrationWindow(self, self.manager.controller.screen_width, self.manager.controller.screen_height)
         
-        # Delegate to Controller
-        success = await self.controller.calibrate(
-            save_folder=self.participant_dir,
-            calib_settings=self.settings.calibration,
-            view=view
-        )
+        # Manager handles the loop (Background thread)
+        success = await self.manager.run_calibration(view)
         
-        self.is_calibrated = success
         if success:
-            await self.run_on_ui(messagebox.showinfo, "Success", "Calibration saved.")
+            self.run_on_ui(messagebox.showinfo, "Success", "Calibration saved.")
         
-        self.set_state(AppState.IDLE)
+        self.run_on_ui(self.set_ui_state, AppState.IDLE)
 
-    async def start_recording(self):
-        if not self.participant_dir or not self.is_calibrated:
-            await self.run_on_ui(messagebox.showwarning, "Error", "Setup participant and calibration first.")
-            return
+    async def _async_record_flow(self):
+        """Logic for start/stop recording."""
+        if not self.manager.is_recording:
+            success = await self.manager.start_recording()
+            if success:
+                self.run_on_ui(self.set_ui_state, AppState.RECORDING)
+            else:
+                self.run_on_ui(messagebox.showwarning, "Warning", "Check settings/calibration.")
+        else:
+            await self.manager.stop_recording()
+            self.run_on_ui(self.set_ui_state, AppState.IDLE)
+            self.run_on_ui(messagebox.showinfo, "Info", "Recording saved.")
 
-        if self.runner: return
+    # --- UI Polish & Lifecycle ---
 
-        try:
-            # 1. Create Session Components
-            source = self.controller.create_source()
-            sinks = create_session_sinks(self.settings, self.participant_dir)
-            
-            # 2. Start Runner
-            self.runner = GazeRunner(source, sinks)
-            await self.runner.start()
-            
-            self.set_state(AppState.RECORDING)
-            
-        except Exception as e:
-            logger.exception("Failed to start recording")
-            self.runner = None
-            await self.run_on_ui(messagebox.showerror, "Error", f"Failed to start: {e}")
+    def set_ui_state(self, state: AppState):
+        """Updates button availability based on Manager state."""
+        has_part = self.manager.participant_id is not None
+        is_calibrated = self.manager.is_calibrated
+        is_recording = self.manager.is_recording
 
-    async def stop_recording(self):
-        if not self.runner: return
+        self.lbl_status.config(text=f"System State: {state.name}")
         
-        # Graceful shutdown
-        await self.runner.stop()
-        self.runner = None
+        self.btn_part.config(state="disabled" if is_recording else "normal")
+        self.btn_calib.config(state="normal" if (has_part and not is_recording) else "disabled")
         
-        self.set_state(AppState.IDLE)
-        await self.run_on_ui(messagebox.showinfo, "Saved", "Recording session finished.")
-
-    async def set_participant(self):
-        pid = await self.run_on_ui(simpledialog.askstring, "ID", "Enter Participant ID:")
-        if not pid: return
-        
-        self.participant_id = pid
-        self.participant_dir = self.settings.data_dir / pid
-        self.participant_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Check for existing calibration
-        self.is_calibrated = await self.controller.load_calibration(self.participant_dir)
-        
-        self.lbl_part.config(text=f"ID: {pid} | Calibrated: {self.is_calibrated}")
-        self.set_state(AppState.IDLE)
-
-    # --- UI Boilerplate ---
-    
-    def _build_ui(self):
-        # Simplified Layout
-        f_main = tk.Frame(self, padx=20, pady=20)
-        f_main.pack(fill="both", expand=True)
-        
-        tk.Label(f_main, text="Gaze Capture", font=("Helvetica", 16, "bold")).pack(pady=10)
-        
-        self.lbl_part = tk.Label(f_main, text="No Participant")
-        self.lbl_part.pack(pady=5)
-        
-        self.btn_part = tk.Button(f_main, text="Set Participant", command=lambda: self.run_async(self.set_participant))
-        self.btn_part.pack(fill="x", pady=5)
-        
-        self.btn_calib = tk.Button(f_main, text="Calibrate", command=lambda: self.run_async(self.start_calibration))
-        self.btn_calib.pack(fill="x", pady=5)
-        
-        self.btn_rec = tk.Button(f_main, text="Start Recording", bg="#ddffdd", command=lambda: self.run_async(self.start_recording))
-        self.btn_rec.pack(fill="x", pady=20)
-        
-        self.btn_stop = tk.Button(f_main, text="Stop", bg="#ffdddd", command=lambda: self.run_async(self.stop_recording))
-        self.btn_stop.pack(fill="x")
-        
-        self.lbl_status = tk.Label(self, text="Init...", relief=tk.SUNKEN, anchor="w")
-        self.lbl_status.pack(side="bottom", fill="x")
-
-    def set_state(self, state: AppState):
-        self.app_state = state
-        self.lbl_status.config(text=f"State: {state.name}")
-        
-        # Simple State Machine Logic
-        is_ready = (state == AppState.IDLE) and (self.participant_id is not None)
-        is_rec = (state == AppState.RECORDING)
-        
-        self.btn_part.config(state="normal" if not is_rec else "disabled")
-        self.btn_calib.config(state="normal" if is_ready else "disabled")
-        self.btn_rec.config(state="normal" if (is_ready and self.is_calibrated) else "disabled")
-        self.btn_stop.config(state="normal" if is_rec else "disabled")
+        if is_recording:
+            self.btn_rec.config(text="STOP RECORDING", bg="#ff5555", fg="white")
+        else:
+            can_record = has_part and is_calibrated
+            self.btn_rec.config(
+                text="START RECORDING", 
+                bg="#55ff55" if can_record else "#f0f0f0",
+                state="normal" if can_record else "disabled"
+            )
 
     def on_closing(self):
-        if self.app_state == AppState.RECORDING:
-            messagebox.showwarning("Warning", "Stop recording before closing.")
+        if self.manager.is_recording:
+            messagebox.showwarning("Warning", "Please stop recording before closing.")
             return
         
-        # Shutdown Sequence
-        self.controller.shutdown()
-        self.bridge.stop()
+        self.manager.shutdown()
         self.destroy()
+
+    def _build_ui(self):
+        container = tk.Frame(self, padx=30, pady=30)
+        container.pack(fill="both", expand=True)
+
+        tk.Label(container, text="GAZE CAPTURE", font=("Helvetica", 14, "bold")).pack(pady=10)
+        
+        self.lbl_part = tk.Label(container, text="No Participant Set", fg="#666", font=("Helvetica", 10))
+        self.lbl_part.pack(pady=15)
+
+        self.btn_part = tk.Button(container, text="1. Set Participant", command=self.on_set_participant)
+        self.btn_part.pack(fill="x", pady=5)
+
+        self.btn_calib = tk.Button(container, text="2. Run Calibration", command=self.on_calibrate)
+        self.btn_calib.pack(fill="x", pady=5)
+
+        self.btn_rec = tk.Button(container, text="START RECORDING", font=("Helvetica", 10, "bold"),
+                                command=self.on_record_toggle)
+        self.btn_rec.pack(fill="x", pady=25)
+
+        self.lbl_status = tk.Label(self, text="Initializing...", relief=tk.SUNKEN, anchor="w", padx=10)
+        self.lbl_status.pack(side="bottom", fill="x")

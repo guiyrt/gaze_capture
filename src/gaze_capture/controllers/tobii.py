@@ -6,20 +6,19 @@ from pathlib import Path
 from typing import Optional, TypeVar
 
 import tobii_research as tr
-from screeninfo import get_monitors
 
 from .base import GazeTrackerController, require_tracker
 from ..acquisition import TobiiSource
 from ..configs import DisplayAreaSettings, CalibrationSettings
-from ..ui import TkinterCalibrationView
+from ..core.protocols import CalibrationView
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
 class TobiiController(GazeTrackerController):
-    def __init__(self, bridge):
-        super().__init__(bridge)
+    def __init__(self):
+        super().__init__()
         self.tracker: Optional[tr.EyeTracker] = None
 
     @property
@@ -71,7 +70,7 @@ class TobiiController(GazeTrackerController):
         self, 
         save_folder: Path, 
         calib_settings: CalibrationSettings, 
-        view: TkinterCalibrationView
+        view: CalibrationView
     ) -> bool:
         """
         Orchestrates the calibration sequence: UI -> Hardware -> UI -> Hardware.

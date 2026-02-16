@@ -2,9 +2,9 @@ import asyncio
 import logging
 from typing import Sequence
 
-from .acquisition.base import GazeSource
-from .sinks.base import GazeSink
-from .types import _END
+from ..acquisition import GazeSource
+from ..sinks import GazeSink
+from ..utils.types import _END
 
 logger = logging.getLogger(__name__)
 

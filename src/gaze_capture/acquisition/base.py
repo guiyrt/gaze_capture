@@ -3,7 +3,7 @@ from asyncio import Queue, Event
 from typing import final
 
 from ..models import GazeData
-from ..types import _END, EndToken
+from ..utils.types import _END, EndToken
 
 class GazeSource(ABC):
     """
@@ -33,7 +33,6 @@ class GazeSource(ABC):
             await self._collect_data()
         finally:
             await self.output_queue.put(_END)
-
 
     @final
     async def stop(self) -> None:
