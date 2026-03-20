@@ -35,9 +35,10 @@ class ParquetSinkConfig(BaseModel):
             raise ValueError('Queue must be bigger than buffer.')
         return self
     
-class ZmqSinkConfig(BaseModel):
+    
+class NatsSinkConfig(BaseModel):
     enabled: bool = True
-    host: str = "tcp://*:5555"
+    host: str = "nats://localhost:4222"
 
 class CalibrationSettings(BaseModel):
     """Settings for the calibration procedure."""
@@ -65,7 +66,7 @@ class AppSettings(BaseSettings):
 
     # Sinks
     parquet: ParquetSinkConfig = Field(default_factory=ParquetSinkConfig)
-    zmq: ZmqSinkConfig = Field(default_factory=ZmqSinkConfig)
+    nats: NatsSinkConfig = Field(default_factory=NatsSinkConfig)
 
     # Logging
     logging: LoggingConfig = Field(default_factory=LoggingConfig)

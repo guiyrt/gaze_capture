@@ -1,4 +1,3 @@
-import time
 import asyncio
 import logging
 import pyarrow as pa
@@ -21,31 +20,31 @@ class ParquetSink(GazeSink):
     """
     _SCHEMA: Final[pa.Schema] = pa.schema([
         # Unix Epoch
-        ("timestamp", pa.timestamp('ms')),
+        ("timestamp_ms", pa.timestamp('ms')),
         
         # Derived Midpoint Data
-        ("mid_x_px", pa.int32()),
-        ("mid_y_px", pa.int32()),
-        ("mid_x", pa.float32()),
-        ("mid_y", pa.float32()),
+        ("gaze_x_px", pa.int16()),
+        ("gaze_y_px", pa.int16()),
+        ("gaze_x_norm", pa.float32()),
+        ("gaze_y_norm", pa.float32()),
         
         # Raw Monotonic Timestamps
         ("device_ts_us", pa.int64()),
         ("system_ts_us", pa.int64()),
         
         # Raw Sensor Data
-        ("left_x", pa.float32()),
-        ("left_y", pa.float32()),
-        ("right_x", pa.float32()),
-        ("right_y", pa.float32()),
-        ("left_pupil", pa.float32()),
-        ("right_pupil", pa.float32()),
+        ("left_x_norm", pa.float32()),
+        ("left_y_norm", pa.float32()),
+        ("right_x_norm", pa.float32()),
+        ("right_y_norm", pa.float32()),
+        ("left_pupil_mm", pa.float32()),
+        ("right_pupil_mm", pa.float32()),
         
         # User 3D Coordinates (eye and gaze-point)
-        ("left_3d", pa.list_(pa.float32())),
-        ("right_3d", pa.list_(pa.float32())),
-        ("left_origin", pa.list_(pa.float32())),
-        ("right_origin", pa.list_(pa.float32())),
+        ("left_3d_mm", pa.list_(pa.float32())),
+        ("right_3d_mm", pa.list_(pa.float32())),
+        ("left_origin_mm", pa.list_(pa.float32())),
+        ("right_origin_mm", pa.list_(pa.float32())),
     ])
 
     def __init__(
@@ -141,7 +140,7 @@ class ParquetSink(GazeSink):
         size = len(batch)
         
         # Pre-allocate flat columns
-        epoch_ts, device_ts, system_ts = [None] * size, [None] * size, [None] * size
+        timestamp_ms, device_ts, system_ts = [None] * size, [None] * size, [None] * size
         m_x_px, m_y_px, m_x, m_y = [None] * size, [None] * size, [None] * size, [None] * size
         l_x, l_y, r_x, r_y = [None] * size, [None] * size, [None] * size, [None] * size
         l_pup, r_pup = [None] * size, [None] * size
@@ -149,35 +148,35 @@ class ParquetSink(GazeSink):
         l_origin, r_origin = [None] * size, [None] * size
 
         for i, d in enumerate(batch):
-            epoch_ts[i] = d.epoch_timestamp_ms
+            timestamp_ms[i] = d.timestamp_ms
             device_ts[i] = d.device_timestamp_us
             system_ts[i] = d.system_timestamp_us
             
-            m_x_px[i] = d.mid_x_px
-            m_y_px[i] = d.mid_y_px
-            m_x[i] = d.mid_x
-            m_y[i] = d.mid_y
+            m_x_px[i] = d.gaze_x_px
+            m_y_px[i] = d.gaze_y_px
+            m_x[i] = d.gaze_x_norm
+            m_y[i] = d.gaze_y_norm
             
-            l_x[i], l_y[i] = d.left_x, d.left_y
-            r_x[i], r_y[i] = d.right_x, d.right_y
+            l_x[i], l_y[i] = d.left_x_norm, d.left_y_norm
+            r_x[i], r_y[i] = d.right_x_norm, d.right_y_norm
             
-            l_pup[i], r_pup[i] = d.left_pupil, d.right_pupil
+            l_pup[i], r_pup[i] = d.left_pupil_mm, d.right_pupil_mm
             
             # Convert tuples to lists for Arrow FixedSizeList compatibility
-            if d.left_3d is not None:
-                l_3d[i] = list(d.left_3d)
-            if d.right_3d is not None:
-                r_3d[i] = list(d.right_3d)
-            if d.left_origin is not None:
-                l_origin[i] = list(d.left_origin)
-            if d.right_origin is not None:
-                r_origin[i] = list(d.right_origin)
+            if d.left_3d_mm is not None:
+                l_3d[i] = list(d.left_3d_mm)
+            if d.right_3d_mm is not None:
+                r_3d[i] = list(d.right_3d_mm)
+            if d.left_origin_mm is not None:
+                l_origin[i] = list(d.left_origin_mm)
+            if d.right_origin_mm is not None:
+                r_origin[i] = list(d.right_origin_mm)
             
         table = pa.Table.from_arrays(
             [
-                pa.array(epoch_ts, type=pa.timestamp('ms')),
-                pa.array(m_x_px, type=pa.int32()),
-                pa.array(m_y_px, type=pa.int32()),
+                pa.array(timestamp_ms, type=pa.timestamp('ms')),
+                pa.array(m_x_px, type=pa.int16()),
+                pa.array(m_y_px, type=pa.int16()),
                 pa.array(m_x, type=pa.float32()),
                 pa.array(m_y, type=pa.float32()),
                 pa.array(device_ts, type=pa.int64()),

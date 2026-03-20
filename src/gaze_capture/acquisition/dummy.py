@@ -40,23 +40,23 @@ class DummySource(GazeSource):
             y_px = int(y * self.screen_height)
 
             model = GazeData(
-                epoch_timestamp_ms=int(time.time() * 1_000),
+                timestamp_ms=int(time.time() * 1_000),
                 device_timestamp_us=(now_ns - t0_ns) // 1_000,
                 system_timestamp_us=now_ns // 1_000,
-                mid_x_px=x_px,
-                mid_y_px=y_px,
-                mid_x=x,
-                mid_y=y,
-                left_x=x,
-                left_y=y,
-                right_x=x,
-                right_y=y,
-                left_pupil=None,
-                right_pupil=None,
-                left_origin=None,
-                right_origin=None,
-                left_3d= None,
-                right_3d=None,
+                gaze_x_px=x_px,
+                gaze_y_px=y_px,
+                gaze_x_norm=x,
+                gaze_y_norm=y,
+                left_x_norm=x,
+                left_y_norm=y,
+                right_x_norm=x,
+                right_y_norm=y,
+                left_pupil_mm=None,
+                right_pupil_mm=None,
+                left_origin_mm=None,
+                right_origin_mm=None,
+                left_3d_mm= None,
+                right_3d_mm=None,
             )
             
             await self.output_queue.put(model)

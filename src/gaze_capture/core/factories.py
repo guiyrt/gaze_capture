@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List
 
 from ..configs import AppSettings
-from ..sinks import GazeSink, ParquetSink, ZMQSink
+from ..sinks import GazeSink, ParquetSink, NATSSink
 
 def create_session_sinks(
     settings: AppSettings, 
@@ -13,9 +13,9 @@ def create_session_sinks(
     """
     sinks = []
 
-    # ZMQ
-    if settings.zmq.enabled:
-        sinks.append(ZMQSink(host=settings.zmq.host))
+    # NATS
+    if settings.nats.enabled:
+        sinks.append(NATSSink(host=settings.nats.host))
 
     # Parquet
     if settings.parquet.enabled:

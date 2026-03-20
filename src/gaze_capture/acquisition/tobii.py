@@ -62,23 +62,23 @@ class TobiiSource(GazeSource):
 
             # Create object
             model = GazeData(
-                epoch_timestamp_ms=self._time_offset.to_utc_ms(data["system_time_stamp"]),
+                timestamp_ms=self._time_offset.to_utc_ms(data["system_time_stamp"]),
                 device_timestamp_us=data["device_time_stamp"],
                 system_timestamp_us=data["system_time_stamp"],
-                mid_x_px=mid_x_px,
-                mid_y_px=mid_y_px,
-                mid_x=mid_x,
-                mid_y=mid_y,
-                left_x=lx,
-                left_y=ly,
-                right_x=rx,
-                right_y=ry,
-                left_pupil=data["left_pupil_diameter"] if data["left_pupil_validity"] else None,
-                right_pupil=data["right_pupil_diameter"] if data["right_pupil_validity"] else None,
-                left_origin=data["left_gaze_origin_in_user_coordinate_system"] if data["left_gaze_origin_validity"] else None,
-                right_origin=data["right_gaze_origin_in_user_coordinate_system"] if data["right_gaze_origin_validity"] else None,
-                left_3d=data["left_gaze_point_in_user_coordinate_system"] if l_valid else None,
-                right_3d=data["right_gaze_point_in_user_coordinate_system"] if r_valid else None,
+                gaze_x_px=mid_x_px,
+                gaze_y_px=mid_y_px,
+                gaze_x_norm=mid_x,
+                gaze_y_norm=mid_y,
+                left_x_norm=lx,
+                left_y_norm=ly,
+                right_x_norm=rx,
+                right_y_norm=ry,
+                left_pupil_mm=data["left_pupil_diameter"] if data["left_pupil_validity"] else None,
+                right_pupil_mm=data["right_pupil_diameter"] if data["right_pupil_validity"] else None,
+                left_origin_mm=data["left_gaze_origin_in_user_coordinate_system"] if data["left_gaze_origin_validity"] else None,
+                right_origin_mm=data["right_gaze_origin_in_user_coordinate_system"] if data["right_gaze_origin_validity"] else None,
+                left_3d_mm=data["left_gaze_point_in_user_coordinate_system"] if l_valid else None,
+                right_3d_mm=data["right_gaze_point_in_user_coordinate_system"] if r_valid else None,
             )
 
             self._loop.call_soon_threadsafe(self.output_queue.put_nowait, model)

@@ -7,30 +7,30 @@ class GazeData:
     Contains raw sensor data and processed pixel coordinates for midpoint.
     """
     # Precise Unix Epoch in milliseconds (derived from PC-Hardware sync)
-    epoch_timestamp_ms: int
+    timestamp_ms: int
 
     # Calculated Midpoint (Derived)
-    mid_x_px: int | None
-    mid_y_px: int | None
-    mid_x: float | None
-    mid_y: float | None
+    gaze_x_px: int | None
+    gaze_y_px: int | None
+    gaze_x_norm: float | None
+    gaze_y_norm: float | None
 
     # Raw Timestamps (Microseconds)
     device_timestamp_us: int
     system_timestamp_us: int
     
     # Raw Sensor Data (Normalized 0.0 to 1.0)
-    left_x: float | None
-    left_y: float | None
-    right_x: float | None
-    right_y: float | None
+    left_x_norm: float | None
+    left_y_norm: float | None
+    right_x_norm: float | None
+    right_y_norm: float | None
     
     # Pupil Diameter (mm)
-    left_pupil: float | None
-    right_pupil: float | None
+    left_pupil_mm: float | None
+    right_pupil_mm: float | None
     
     # 3D Position and Origin (User Coordinates in mm)
-    left_3d: tuple[float, float, float] | None
-    right_3d: tuple[float, float, float] | None
-    left_origin: tuple[float, float, float] | None
-    right_origin: tuple[float, float, float] | None
+    left_3d_mm: tuple[float, float, float] | None
+    right_3d_mm: tuple[float, float, float] | None
+    left_origin_mm: tuple[float, float, float] | None
+    right_origin_mm: tuple[float, float, float] | None
