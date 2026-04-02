@@ -9,7 +9,7 @@ import tobii_research as tr
 
 from .base import GazeTrackerController, require_tracker
 from ..acquisition import TobiiSource
-from ..configs import DisplayAreaSettings, CalibrationSettings
+from ..configs import DisplayAreaSettings
 from ..core.protocols import CalibrationView
 
 logger = logging.getLogger(__name__)
@@ -69,7 +69,6 @@ class TobiiController(GazeTrackerController):
     async def calibrate(
         self, 
         save_folder: Path, 
-        calib_settings: CalibrationSettings, 
         view: CalibrationView
     ) -> bool:
         """
@@ -85,7 +84,7 @@ class TobiiController(GazeTrackerController):
             await asyncio.to_thread(calib_obj.enter_calibration_mode)
             
             # 2. Collect Points
-            for x, y in calib_settings.points_to_calibrate:
+            for x, y in self.CALIBRATION_POINTS:
                 # UI Draw
                 await view.show_point(x, y)
                 # Stabilization Wait

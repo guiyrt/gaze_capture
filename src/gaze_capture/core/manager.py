@@ -41,6 +41,7 @@ class SessionManager:
 
         future.add_done_callback(_on_complete)
         return future
+
     @property
     def is_recording(self) -> bool:
         return self.runner is not None
@@ -81,7 +82,6 @@ class SessionManager:
         logger.info("Starting calibration sequence...")
         self.is_calibrated = await self.controller.calibrate(
             save_folder=self.participant_dir,
-            calib_settings=self.settings.calibration,
             view=view
         )
         return self.is_calibrated
@@ -112,7 +112,7 @@ class SessionManager:
             return True
             
         except Exception as e:
-            logger.exception("Failed to initialize recording session")
+            logger.exception("Failed to initialize recording session: %s", e)
             self.runner = None
             return False
 

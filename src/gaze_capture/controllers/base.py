@@ -4,9 +4,10 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from functools import wraps
 import logging
+from typing import Final
 
 from ..acquisition import GazeSource
-from ..configs import CalibrationSettings, DisplayAreaSettings
+from ..configs import DisplayAreaSettings
 from ..core.protocols import CalibrationView
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,13 @@ class GazeTrackerController(ABC):
     Abstract Hardware Manager.
     AUTHORITY on: Connection, Calibration, and Screen Geometry.
     """
+    CALIBRATION_POINTS: Final[list[tuple[float, float]]] = [
+        (0.5, 0.5),
+        (0.1, 0.1), (0.1, 0.9),
+        (0.9, 0.1), (0.9, 0.9),
+        (0.3, 0.7), (0.7, 0.3)
+        ]
+
     def __init__(self,):
         # Geometry Authority
         self.screen_width: int = 0
@@ -63,7 +71,7 @@ class GazeTrackerController(ABC):
 
     @require_tracker
     @abstractmethod
-    async def calibrate(self, cfg: CalibrationSettings, folder: Path) -> bool:
+    async def calibrate(self, folder: Path) -> bool:
         ...
     
     @require_tracker

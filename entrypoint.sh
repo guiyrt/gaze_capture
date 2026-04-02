@@ -18,5 +18,5 @@ echo "Waiting for services to initialize..."
 sleep 2
 
 echo "Starting main application..."
-# Execute the command passed to the container
-exec "$@"
+# gosu drops root privileges and executes the passed command as our new user
+exec gosu "${PUID:-1000}:${PGID:-1000}" "$@"

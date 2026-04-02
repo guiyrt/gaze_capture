@@ -29,15 +29,21 @@ class DummySource(GazeSource):
         while not self._stop_event.is_set():
             now_ns = time.monotonic_ns()
             elapsed_s = (now_ns - t0_ns) / 1e9
-            
-            # Circle Math
-            angle = elapsed_s * 2 * math.pi * 0.5
-            x = cx + radius * math.cos(angle)
-            y = cy + radius * math.sin(angle)
-            
-            # Pixels
-            x_px = int(x * self.screen_width)
-            y_px = int(y * self.screen_height)
+
+            # Blink 500ms every 2.5s
+            is_blinking = (elapsed_s % 2.5) < 0.5
+
+            if is_blinking:
+                x = y = x_px = y_px = None
+            else:           
+                # Circle Math
+                angle = elapsed_s * 2 * math.pi * 0.5
+                x = cx + radius * math.cos(angle)
+                y = cy + radius * math.sin(angle)
+                
+                # Pixels
+                x_px = int(x * self.screen_width)
+                y_px = int(y * self.screen_height)
 
             model = GazeData(
                 timestamp_ms=int(time.time() * 1_000),

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from .base import GazeTrackerController
 from ..acquisition import DummySource
-from ..configs import DisplayAreaSettings, CalibrationSettings
+from ..configs import DisplayAreaSettings
 from ..core.protocols import CalibrationView
 
 logger = logging.getLogger(__name__)
@@ -39,14 +39,13 @@ class DummyController(GazeTrackerController):
     async def calibrate(
         self,
         save_folder: Path,
-        calib_settings: CalibrationSettings,
         view: CalibrationView
     ) -> bool:
         try:
             await view.open()
             await view.show_message("Simulating Hardware...")
             
-            for x, y in calib_settings.points_to_calibrate:
+            for x, y in self.CALIBRATION_POINTS:
                 await view.show_point(x, y)
                 await asyncio.sleep(0.5)
             

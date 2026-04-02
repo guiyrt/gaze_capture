@@ -35,22 +35,9 @@ class ParquetSinkConfig(BaseModel):
             raise ValueError('Queue must be bigger than buffer.')
         return self
     
-    
 class NatsSinkConfig(BaseModel):
     enabled: bool = True
-    host: str = "nats://localhost:4222"
-
-class CalibrationSettings(BaseModel):
-    """Settings for the calibration procedure."""
-    points_to_calibrate: list[tuple[float, float]] = Field(
-        default=[
-            (0.5, 0.5),
-            (0.1, 0.1), (0.1, 0.9),
-            (0.9, 0.1), (0.9, 0.9),
-            (0.3, 0.7), (0.7, 0.3)
-        ],
-        description="List of normalized (0-1) screen coordinates to use as calibration targets."
-    )
+    subject: str = "intent.gaze"
 
 class AppSettings(BaseSettings):
     """
@@ -62,7 +49,6 @@ class AppSettings(BaseSettings):
 
     # Hardware
     display_area: DisplayAreaSettings = Field(default_factory=DisplayAreaSettings)
-    calibration: CalibrationSettings = Field(default_factory=CalibrationSettings)
 
     # Sinks
     parquet: ParquetSinkConfig = Field(default_factory=ParquetSinkConfig)

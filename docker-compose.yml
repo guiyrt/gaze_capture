@@ -4,23 +4,24 @@ services:
     container_name: gaze_capture
     network_mode: host
 
-    # --- Allow outbound requests to localhost ---
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
     # --- Eye Tracker Access ---
-    devices:
-      - "/dev/udev/tobii_pro_fusion:/dev/udev/tobii_pro_fusion"
+    # devices:
+    #   - "/dev/udev/tobii_pro_fusion:/dev/udev/tobii_pro_fusion"
 
     # --- GUI Forwarding Configuration ---
     environment:
+    # Pass host UID/GID to the entrypoint
+      - PUID=1000
+      - PGID=1000
+
       - DISPLAY=${DISPLAY}
       - GAZE__DATA_DIR=/app/recordings
-      - GAZE__ZMQ__HOST=tcp://*:5555
+      - GAZE__NATS__HOST=nats://localhost:4222
       - GAZE__LOGGING__LEVEL=INFO
+      - GAZE__USE_DUMMY_MODE=true
 
       # Screen dimensions
-      - GAZE__DISPLAY_AREA__HEIGHT_PX=2160
+      - GAZE__DISPLAY_AREA__HEIGHT_PX=2160 
       - GAZE__DISPLAY_AREA__WIDTH_PX=3840
       - GAZE__DISPLAY_AREA__WIDTH_MM=937.20
       - GAZE__DISPLAY_AREA__HEIGHT_MM=527.17
@@ -33,7 +34,7 @@ services:
       # For communicating with the X server
       - /tmp/.X11-unix:/tmp/.X11-unix
       # For authenticating with the X server
-      - ~/.Xauthority:/root/.Xauthority:ro
+      #- ~/.Xauthority:/tmp/.Xauthority:ro
       # Symlinks to devices mounted with udev
       - /dev/udev:/dev/udev
       

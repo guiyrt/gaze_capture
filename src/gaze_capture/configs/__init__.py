@@ -1,1 +1,1 @@
-from .app import AppSettings, DisplayAreaSettings, CalibrationSettings
+from .app import AppSettings, DisplayAreaSettings

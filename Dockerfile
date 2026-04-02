@@ -16,9 +16,6 @@ RUN uv sync --locked --no-editable
 # -- Runtime --
 FROM python:3.10-slim-bookworm
 
-# Create a non-privileged user
-RUN groupadd -g 1000 appuser && useradd -u 1000 -g appuser -m -s /bin/bash appuser
-
 WORKDIR /app
 
 # Copy the virtual environment from the builder
@@ -32,12 +29,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dbus \
     python3-tk \
     x11-xserver-utils \
+    gosu \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy Tobii driver
 COPY drivers/2.13.2.0/ .
 RUN ./setup.sh
 
-COPY entrypoint.sh /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
+COPY --chmod=755 entrypoint.sh /app/entrypoint.sh
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["gaze-capture"]
