@@ -10,29 +10,15 @@ from aware_protos.zhaw.protobuf import gaze_pb2
 logger = logging.getLogger(__name__)
 
 class NATSSink(GazeSink):
-    def __init__(self, host: str, subject: str = "intent.gaze"):
-        self.host = host
+    def __init__(
+        self,
+        nc: nats.NATS,
+        subject: str = "intent.gaze"
+    ):
+        self.nc = nc
         self.subject = subject
-        self.nc = nats.NATS()
 
         self._proto = gaze_pb2.GazeScreenPosition()
-
-    async def start(self) -> None:
-        async def disconnected_cb():
-            logger.warning("NATS disconnected. NATS will auto-reconnect...")
-            
-        async def reconnected_cb():
-            logger.info(f"NATS reconnected to {self.nc.connected_url.netloc}")
-
-        await self.nc.connect(
-            self.host,
-            allow_reconnect=True,
-            max_reconnect_attempts=-1,
-            reconnect_time_wait=2,
-            disconnected_cb=disconnected_cb,
-            reconnected_cb=reconnected_cb
-        )
-        logger.info(f"NATSSink connected on subject '{self.subject}'")
 
     async def send(self, data: GazeData) -> None:
         if not self.nc.is_connected:
@@ -54,9 +40,6 @@ class NATSSink(GazeSink):
             
         except OutboundBufferLimitError:
             pass # Drop frame gracefully if NATS is offline
-        except Exception as e:
-            logger.error(f"Failed to publish prediction to NATS: {e}")
 
-    async def close(self) -> None:
-        if self.nc.is_connected:
-            await self.nc.drain()
+        except Exception as e:
+            logger.error("Failed to publish prediction to NATS: %s", e)

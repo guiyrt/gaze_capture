@@ -24,7 +24,7 @@ class DisplayAreaSettings(BaseModel):
 
 class ParquetSinkConfig(BaseModel):
     enabled: bool = True
-    output_dir: Path = Path("./recordings")
+    output_dir: Path = Path("./data")
     drop_when_full: bool = True
     max_buffer_size: PositiveInt = 120 * 5 # Flushes every 5 seconds at 120 Hz
     queue_size: PositiveInt = 120 * 5 * 60 # Holds 5 minutes of data at 120 Hz
@@ -45,7 +45,8 @@ class AppSettings(BaseSettings):
     """
     # Data
     use_dummy_mode: bool = False
-    data_dir: Path = Field(default_factory=lambda: Path.cwd() / "recordings", description="Path to directory where local data is stored.")
+    data_dir: Path = Field(default=Path("./data"), description="Path to directory where local data is stored.")
+    nats_host: str = "nats://localhost:4222"
 
     # Hardware
     display_area: DisplayAreaSettings = Field(default_factory=DisplayAreaSettings)

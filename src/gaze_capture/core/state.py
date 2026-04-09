@@ -13,3 +13,4 @@ class AppState(Enum):
     IDLE = auto() # Tracker found, ready for calibration or recording.
     CALIBRATING = auto() # The calibration window is active.
     RECORDING = auto() # The data pipeline is active and recording data.
+    TRACKER_LOST = auto() # Eye tracker failed during recording

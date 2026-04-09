@@ -7,7 +7,6 @@ class GazeSink(ABC):
     Provides common context manager logic for simplified lifecycle management.
     """
 
-    @abstractmethod
     async def start(self) -> None:
         """Initialize sink resources."""
         pass
@@ -20,12 +19,9 @@ class GazeSink(ABC):
         """
         pass
 
-    @abstractmethod
     async def close(self) -> None:
         """Clean up sink resources."""
         pass
-
-    # --- Shared Logic (Code Reuse) ---
 
     async def __aenter__(self):
         await self.start()

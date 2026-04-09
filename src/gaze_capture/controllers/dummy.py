@@ -1,6 +1,8 @@
 import asyncio
 import logging
 from pathlib import Path
+from datetime import datetime, timezone
+import json
 
 from .base import GazeTrackerController
 from ..acquisition import DummySource
@@ -63,6 +65,10 @@ class DummyController(GazeTrackerController):
             # Simulate save
             await asyncio.to_thread((save_folder / "calibration.bin").write_text, "dummy")
             self._calibrated = True
+
+            result["timestamp"] = datetime.now(timezone.utc).isoformat()
+            with open(save_folder / "calibration_result.json", "w") as f:
+                json.dump(result, f, indent=2)
             
             await view.show_results(result)
             return True

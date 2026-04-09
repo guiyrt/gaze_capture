@@ -7,11 +7,17 @@ ENV UV_LINK_MODE=copy
 ENV UV_NO_DEV=1
 WORKDIR /app
 
-# Install project
+# Copy files needed to install dependencies
 COPY pyproject.toml uv.lock README.md ./
+COPY aware-protos/ ./aware-protos/
+
+# Install dependencies (this layer will be cached)
+RUN uv sync --frozen --no-install-project --no-editable
+
+# Copy source code and install project
 COPY src/ ./src
-COPY aware-protos/ ./aware-protos
-RUN uv sync --locked --no-editable
+RUN uv sync --frozen --no-editable
+
 
 # -- Runtime --
 FROM python:3.10-slim-bookworm
@@ -24,11 +30,9 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # Install System Dependencies
 #   - dbus: for Tobii driver daemon
-#   - x11-xserver-utils: to get screen information
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dbus \
     python3-tk \
-    x11-xserver-utils \
     gosu \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -36,6 +40,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY drivers/2.13.2.0/ .
 RUN ./setup.sh
 
-COPY --chmod=755 entrypoint.sh /app/entrypoint.sh
+COPY entrypoint.sh /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["gaze-capture"]
+CMD ["aware-command-center"]

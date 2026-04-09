@@ -26,7 +26,7 @@ class GazeRunner:
         
         logger.info("Starting GazeRunner...")
         self._running = True
-        
+
         # Start sinks
         await asyncio.gather(*(s.start() for s in self.sinks))
         

@@ -4,19 +4,16 @@ import logging
 import nats
 
 from gaze_capture.core.manager import EyeTrackingManager
-from gaze_capture.ui.main_window import GazeCaptureApp
 from gaze_capture.configs.app import AppSettings
 from gaze_capture.controllers import TobiiController, DummyController
+
+from gaze_capture.aware_command_center.services import GazeService, RemoteService
+from gaze_capture.aware_command_center.orchestrator import ExperimentOrchestrator
+from gaze_capture.aware_command_center.ui import CommandCenterUI
 
 async def setup_nats(host: str) -> nats.NATS:
     """Robust top-level NATS connection."""
     nc = nats.NATS()
-    
-    async def disconnected_cb():
-        logging.warning("NATS disconnected. Auto-reconnecting...")
-        
-    async def reconnected_cb():
-        logging.info("NATS reconnected.")
 
     while True:
         try:
@@ -24,9 +21,6 @@ async def setup_nats(host: str) -> nats.NATS:
                 host,
                 allow_reconnect=True,
                 max_reconnect_attempts=-1,
-                reconnect_time_wait=2,
-                disconnected_cb=disconnected_cb,
-                reconnected_cb=reconnected_cb
             )
             logging.info("NATS Connected.")
             return nc
@@ -41,21 +35,22 @@ def main():
 
     # Create the high-performance background loop
     loop = asyncio.new_event_loop()
-    
-    # Start the loop in a dedicated thread
-    thread = threading.Thread(target=loop.run_forever, name="AsyncioEngine", daemon=True)
-    thread.start()
+    threading.Thread(target=loop.run_forever, daemon=True).start()
 
-    # Wait for NATS to connect synchronously before starting the app
     future = asyncio.run_coroutine_threadsafe(setup_nats(settings.nats_host), loop)
     nc = future.result()
 
     # Instantiate components
     controller = TobiiController() if not settings.use_dummy_mode else DummyController()
-    manager = EyeTrackingManager(controller, settings, loop, nc)
+    eye_tracking_manager = EyeTrackingManager(controller, settings, loop, nc)
 
-    # Start UI on the Main Thread
-    app = GazeCaptureApp(manager)
+    # Define Services
+    gaze_svc = GazeService(eye_tracking_manager)
+    pred_svc = RemoteService("Task Prediction", loop, nc, "intent.health.task_pred", "intent.cmds.task_pred")
+    heur_svc = RemoteService("Attention Target", loop, nc, "intent.health.attention", "intent.cmds.attention")
+
+    orchestrator = ExperimentOrchestrator(settings, eye_tracking_manager, [gaze_svc, pred_svc, heur_svc])
+    app = CommandCenterUI(orchestrator, loop)
     
     try:
         app.mainloop()

@@ -3,7 +3,7 @@ import logging
 import datetime
 import asyncio
 from pathlib import Path
-from typing import Optional, TypeVar
+from typing import Optional, TypeVar, Callable
 
 import tobii_research as tr
 
@@ -27,26 +27,66 @@ class TobiiController(GazeTrackerController):
 
     @property
     def tracker_name(self) -> str:
-        return self.tracker.device_name if self.tracker else "N/A"
+        return f"{self.tracker.device_name} ({self.tracker.serial_number})" if self.tracker else "N/A"
+    
+    def set_connection_callbacks(self, on_lost: Callable[[], None], on_restored: Callable[[], None]):
+        """Allows the Manager to register callbacks for hardware events."""
+        self._on_connection_lost = on_lost
+        self._on_connection_restored = on_restored
 
     async def connect(self, display_settings: DisplayAreaSettings) -> bool:
         try:
-            # 1. Screen Discovery
-            self.screen_width, self.screen_height = display_settings.width_px, display_settings.height_px
-
-            # 2. Tracker Discovery
             trackers = await asyncio.to_thread(tr.find_all_eyetrackers)
+            
             if not trackers:
                 return False
 
             self.tracker = trackers[0]
+
+            self._subscribe_notifications()
             
-            # 3. Apply Display Geometry
-            await self._apply_display_area(display_settings)
-            return True
+            await self.apply_display_settings(display_settings)
+
         except Exception as e:
             logger.error(f"Hardware connection failed: {e}")
             return False
+        
+        return True
+    
+    def _subscribe_notifications(self):
+        """Subscribes to Tobii connection events."""
+        if self.tracker is None:
+            return
+        
+        loop = asyncio.get_running_loop()
+
+        def notification_callback(notification, _):
+            if notification == tr.EYETRACKER_NOTIFICATION_CONNECTION_LOST:
+                logger.warning("Tobii Tracker LOST connection!")
+                if self._on_connection_lost:
+                    loop.call_soon_threadsafe(self._on_connection_lost)
+
+            elif notification == tr.EYETRACKER_NOTIFICATION_CONNECTION_RESTORED:
+                logger.info("Tobii Tracker RESTORED signal received!")
+                loop.call_soon_threadsafe(lambda: asyncio.create_task(self._recover_state()))
+
+        for notification in {tr.EYETRACKER_NOTIFICATION_CONNECTION_LOST, tr.EYETRACKER_NOTIFICATION_CONNECTION_RESTORED}:
+            self.tracker.subscribe_to(
+                notification,
+                lambda x, n=notification: notification_callback(n, x)
+            )
+        logger.info("Subscribed to Tobii hardware notifications.")
+
+    async def _recover_state(self):
+        """Automatically called when tracker reconnects to re-apply geometry and calibration."""
+        logger.info("Attempting to recover hardware settings...")
+        if self.last_display_settings:
+            await self.apply_display_settings(self.last_display_settings)
+        if self.last_calibration_path:
+            await self.load_calibration(self.last_calibration_path)
+            
+        if self._on_connection_restored is not None:
+            self._on_connection_restored()
 
     def create_source(self) -> TobiiSource:
         return TobiiSource(self.tracker, self.screen_width, self.screen_height)
@@ -60,10 +100,15 @@ class TobiiController(GazeTrackerController):
         try:
             data = await asyncio.to_thread(bin_path.read_bytes)
             await asyncio.to_thread(self.tracker.apply_calibration_data, data)
-            return True
+            self.last_calibration_path = folder # Cache it so we can re-apply on connection restore
+            logger.info("Loaded calibration: %s", bin_path)
+
         except Exception as e:
             logger.error(f"Load calibration failed: {e}")
             return False
+        
+        return True
+
 
     @require_tracker
     async def calibrate(
@@ -106,6 +151,7 @@ class TobiiController(GazeTrackerController):
                 # Save calibration
                 bin_data = self.tracker.retrieve_calibration_data()
                 (save_folder / "calibration.bin").write_bytes(bin_data)
+                self.last_calibration_path = save_folder
                 
                 # Save results
                 results = self._map_to_dict(result)
@@ -130,11 +176,21 @@ class TobiiController(GazeTrackerController):
             await view.close()
 
     def shutdown(self) -> None:
+        if self.tracker:
+            try:
+                self.tracker.unsubscribe_from(tr.EYETRACKER_NOTIFICATION_CONNECTION_LOST)
+                self.tracker.unsubscribe_from(tr.EYETRACKER_NOTIFICATION_CONNECTION_RESTORED)
+            except Exception as e:
+                logger.debug(f"Failed to cleanly unsubscribe notifications: {e}")
+        
         self.tracker = None
 
-    async def _apply_display_area(self, cfg: DisplayAreaSettings) -> None:
+    async def apply_display_settings(self, cfg: DisplayAreaSettings) -> bool:
         w, h = cfg.width_mm, cfg.height_mm
         vo, ho, d = cfg.vertical_offset_mm, cfg.horizontal_offset_mm, cfg.depth_offset_mm
+
+        self.screen_height, self.screen_width = cfg.height_px, cfg.width_px
+        self.last_display_settings = cfg
 
         coords = {
             "top_left": (-(w/2) + ho, h + vo, d),
@@ -146,8 +202,11 @@ class TobiiController(GazeTrackerController):
             area = tr.DisplayArea(coords)
             await asyncio.to_thread(self.tracker.set_display_area, area)
             logger.info(f"Display Area applied: {self.screen_width}x{self.screen_height}")
+            return True
+
         except Exception:
             logger.exception("Hardware rejected DisplayArea configuration.")
+            return False
         
     def _map_to_dict(self, result: tr.CalibrationResult) -> dict:
         """Converts SDK object to clean dict."""

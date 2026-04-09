@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from functools import wraps
 import logging
-from typing import Final
+from typing import Final, Callable, Optional
 
 from ..acquisition import GazeSource
 from ..configs import DisplayAreaSettings
@@ -34,13 +34,18 @@ class GazeTrackerController(ABC):
         (0.5, 0.5),
         (0.1, 0.1), (0.1, 0.9),
         (0.9, 0.1), (0.9, 0.9),
-        (0.3, 0.7), (0.7, 0.3)
+        (0.3, 0.3), (0.3, 0.7),
+        (0.7, 0.3), (0.7, 0.7),
         ]
 
     def __init__(self,):
         # Geometry Authority
         self.screen_width: int = 0
         self.screen_height: int = 0
+        self._on_connection_lost: Optional[Callable[[], None]] = None
+        self._on_connection_restored: Optional[Callable[[], None]] = None
+        self.last_display_settings: Optional[DisplayAreaSettings] = None
+        self.last_calibration_path: Optional[Path] = None
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
@@ -108,4 +113,13 @@ class GazeTrackerController(ABC):
     @abstractmethod
     def shutdown(self) -> None:
         """Cleanup hardware resources."""
+        ...
+
+    def _subscribe_notifications(self) -> None:
+        ...
+
+    def set_connection_callbacks(self, on_lost: Callable[[], None], on_restored: Callable[[], None]) -> None:
+        ...
+
+    async def apply_display_settings(self) -> None:
         ...
