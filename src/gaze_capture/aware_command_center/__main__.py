@@ -45,11 +45,14 @@ def main():
     eye_tracking_manager = EyeTrackingManager(controller, settings, loop, nc)
 
     # Define Services
-    gaze_svc = GazeService(eye_tracking_manager)
-    pred_svc = RemoteService("Task Prediction", loop, nc, "intent.health.task_pred", "intent.cmds.task_pred")
-    heur_svc = RemoteService("Attention Target", loop, nc, "intent.health.attention", "intent.cmds.attention")
+    services = [
+        GazeService(eye_tracking_manager),
+        RemoteService("Task Prediction", loop, nc, "intent.health.task_pred", "intent.cmds.task_pred"),
+        RemoteService("Attention Target", loop, nc, "intent.health.attention", "intent.cmds.attention"),
+        RemoteService("Screen Recorder", loop, nc, "screen.health", "screen.cmds"),
+    ]
 
-    orchestrator = ExperimentOrchestrator(settings, eye_tracking_manager, [gaze_svc, pred_svc, heur_svc])
+    orchestrator = ExperimentOrchestrator(settings, eye_tracking_manager, services)
     app = CommandCenterUI(orchestrator, loop)
     
     try:

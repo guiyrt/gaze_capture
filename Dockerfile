@@ -22,12 +22,6 @@ RUN uv sync --frozen --no-editable
 # -- Runtime --
 FROM python:3.10-slim-bookworm
 
-WORKDIR /app
-
-# Copy the virtual environment from the builder
-COPY --from=builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
-
 # Install System Dependencies
 #   - dbus: for Tobii driver daemon
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -35,6 +29,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-tk \
     gosu \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the virtual environment from the builder
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy Tobii driver
 COPY drivers/2.13.2.0/ .

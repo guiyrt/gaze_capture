@@ -27,7 +27,7 @@ class DummyController(GazeTrackerController):
 
     async def connect(self, settings: DisplayAreaSettings) -> bool:
         await asyncio.sleep(0.5) # Simulate discovery
-        self.screen_width, self.screen_height = settings.width_px, settings.height_px
+        await self.apply_display_settings(settings)
         self._connected = True
         return True
 
@@ -36,7 +36,13 @@ class DummyController(GazeTrackerController):
 
     async def load_calibration(self, folder: Path) -> bool:
         self._calibrated = (folder / "calibration.bin").exists()
+        self.last_calibration_path = folder
         return self._calibrated
+    
+    async def apply_display_settings(self, cfg: DisplayAreaSettings) -> bool:
+        self.last_display_settings = cfg
+        self.screen_width, self.screen_height = cfg.width_px, cfg.height_px
+        return True
 
     async def calibrate(
         self,
@@ -64,6 +70,7 @@ class DummyController(GazeTrackerController):
             
             # Simulate save
             await asyncio.to_thread((save_folder / "calibration.bin").write_text, "dummy")
+            self.last_calibration_path = save_folder
             self._calibrated = True
 
             result["timestamp"] = datetime.now(timezone.utc).isoformat()

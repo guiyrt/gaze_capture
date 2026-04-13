@@ -121,5 +121,5 @@ class GazeTrackerController(ABC):
     def set_connection_callbacks(self, on_lost: Callable[[], None], on_restored: Callable[[], None]) -> None:
         ...
 
-    async def apply_display_settings(self) -> None:
+    async def apply_display_settings(self, cfg: DisplayAreaSettings) -> bool:
         ...

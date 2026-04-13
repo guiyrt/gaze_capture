@@ -125,19 +125,19 @@ class EyeTrackingManager:
             return False
         
     async def _suspend_recording(self):
-        if self._runner:
+        if self._runner is not None:
             await self._runner.stop()
+            self._runner = None
         
-        self._runner = None
         self._set_state(AppState.TRACKER_LOST)
 
     async def stop_recording(self):
-        if self._runner:
+        if self._runner is not None:
             await self._runner.stop()
+            self._runner = None
+            self._current_recording_path = None
 
-        self._runner = None
-        self._current_recording_path = None
-        self._set_state(AppState.IDLE)
+            self._set_state(AppState.IDLE)
 
     def run_task(self, coro):
         future = asyncio.run_coroutine_threadsafe(coro, self.loop)

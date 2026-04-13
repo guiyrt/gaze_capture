@@ -164,11 +164,13 @@ class ExperimentOrchestrator:
             json.dump(meta, f, indent=2)
         
         # Copy calibration
-        shutil.copytree(self.gaze_manager.controller.last_calibration_path, self.session_dir/"calibration", dirs_exist_ok=True)
+        if self.gaze_manager.controller.last_calibration_path is not None:
+            shutil.copytree(self.gaze_manager.controller.last_calibration_path, self.session_dir/"calibration", dirs_exist_ok=True)
 
         # Save display settings
-        with open(self.session_dir/"display_settings.json", "w") as f:
-            f.write(self.gaze_manager.controller.last_display_settings.model_dump_json(indent=2))
+        if self.gaze_manager.controller.last_display_settings is not None:
+            with open(self.session_dir/"display_settings.json", "w") as f:
+                f.write(self.gaze_manager.controller.last_display_settings.model_dump_json(indent=2))
 
         try:
             if is_success:
