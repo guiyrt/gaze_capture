@@ -21,7 +21,7 @@ class CommandCenterUI(tk.Tk):
         self.loop = loop
         
         self.title("Gaze Capture Command Center")
-        self.geometry("800x950")
+        self.geometry("800x1050")
         self.configure(bg=Theme.BG_WINDOW, padx=20, pady=20)
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         

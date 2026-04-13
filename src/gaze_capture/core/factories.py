@@ -31,7 +31,7 @@ def create_sinks(
     if settings.parquet.enabled:
         sinks.append(
             ParquetSink(
-                output_dir=output_dir or settings.parquet.output_dir,
+                output_dir=output_dir or settings.data_dir,
                 drop_when_full=settings.parquet.drop_when_full,
                 max_buffer_size=settings.parquet.max_buffer_size,
                 queue_size=settings.parquet.queue_size

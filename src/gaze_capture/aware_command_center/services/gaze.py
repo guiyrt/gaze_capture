@@ -43,7 +43,7 @@ class GazeService(BaseService):
     async def start(self, session_id: str) -> bool:
         if self.current_state != ServiceState.READY:
             return False
-        return await self.manager.start_recording(session_id)
+        return await self.manager.start_recording(f"{session_id}/ET/")
 
     async def stop(self) -> None:
         await self.manager.stop_recording()

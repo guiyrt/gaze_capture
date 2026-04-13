@@ -59,7 +59,7 @@ class ParquetSink(GazeSink):
         
         # Setup file with UTC timestamp
         output_dir.mkdir(parents=True, exist_ok=True)
-        self.output_path = output_dir / f"eye_tracker_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}.parquet"
+        self.output_path = output_dir / f"eye_tracker__{datetime.now(timezone.utc):%Y%m%d_%H%M%S}.parquet"
         
         # Internal state
         self._queue: asyncio.Queue[GazeData | EndToken] = asyncio.Queue(maxsize=queue_size)

@@ -4,6 +4,7 @@ import shutil
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from collections import defaultdict
 
 from .services import BaseService, ServiceState
 from ..core.manager import EyeTrackingManager
@@ -35,6 +36,10 @@ class ExperimentOrchestrator:
     @property
     def session_dir(self) -> Path | None:
         return (self.experiment_root / self.session_id) if self.session_id else None
+    
+    @property
+    def run_id(self) -> str:
+        return f"{self.participant_id}_april_{self.scenario_id}"
 
     def _load_or_create_display_settings(self):
         """Synchronously loads settings from disk, or creates the file if missing."""
@@ -60,7 +65,15 @@ class ExperimentOrchestrator:
     async def set_experiment_ids(self, pid: str, sid: str) -> None:
         self.participant_id = pid
         self.scenario_id = sid
-        self.session_id = f"{pid}_{sid}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        self.session_id = f"{self.run_id}__{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        # Create folder structure
+        self.session_dir.mkdir(parents=True, exist_ok=True)
+        (self.session_dir / "ET").mkdir(parents=True, exist_ok=True)
+        (self.session_dir / "simulator").mkdir(parents=True, exist_ok=True)
+        (self.session_dir / "taskRecognition").mkdir(parents=True, exist_ok=True)
+        (self.session_dir / "videoRecordings").mkdir(parents=True, exist_ok=True)
+        (self.session_dir / "metadata").mkdir(parents=True, exist_ok=True)
 
         cache_dir = self.experiment_root / ".calibrations" / pid
         if cache_dir.exists():
@@ -118,8 +131,6 @@ class ExperimentOrchestrator:
         if target_name not in self.services:
             return False
 
-        self.session_dir.mkdir(parents=True, exist_ok=True)
-
         return await self.services[target_name].start(self.session_id)
 
     async def stop_service(self, target_name: str) -> None:
@@ -143,6 +154,47 @@ class ExperimentOrchestrator:
         for name in self.services:
             await self.stop_service(name)
 
+    def _correct_folder_structure(self):
+        # Update filenames
+        grouped_files: dict[str, list[Path]] = defaultdict(list)
+
+        # Pass 1: Collect and group files by (parent_directory, X_part)
+        for filepath in self.session_dir.rglob("*"):
+            if filepath.is_file():
+                # Skip metadata folder
+                rel_parts = filepath.relative_to(self.session_dir).parts
+                if rel_parts and rel_parts[0] == "metadata":
+                    continue
+
+                x_part = filepath.stem.split("__")[0]
+                
+                grouped_files[x_part].append(filepath)
+
+        # Pass 2: Rename files with sequential suffixes if needed
+        for x_part, files in grouped_files.items():
+            # Sort the files so earlier timestamps get _1, later get _2, etc.
+            files.sort()
+            
+            for i, filepath in enumerate(files, start=1):
+                # Add a number suffix only if there's more than one file in the group
+                num_suffix = f"_{i}" if len(files) > 1 else ""
+                
+                new_filename = f"{self.run_id}_{x_part}{num_suffix}{filepath.suffix}"
+                new_filepath = filepath.with_name(new_filename)
+                
+                try:
+                    filepath.rename(new_filepath)
+                except Exception as e:
+                    logger.error(f"Failed to rename file {filepath.name} to {new_filename}: {e}")
+        
+        # Update folder name
+        new_path = self.experiment_root / self.run_id
+        counter = 1
+        while new_path.exists():
+            new_path = self.experiment_root / f"{self.run_id}_v{counter}"
+            counter += 1
+        self.session_dir.rename(new_path)
+
     # --- Utilities & File Handlers ---
 
     def mark_session(self, is_success: bool, notes: str = "") -> tuple[bool, str]:
@@ -152,6 +204,8 @@ class ExperimentOrchestrator:
 
         if any(svc.current_state == ServiceState.RECORDING for svc in self.services.values()):
             return False, "Cannot mark session while services are actively recording. Stop them first."
+        
+        metadata_dir = self.session_dir / "metadata"
 
         meta = {
             "success": is_success,
@@ -160,27 +214,21 @@ class ExperimentOrchestrator:
             "notes": notes,
             "end_timestamp": datetime.now(timezone.utc).isoformat()
         }
-        with open(self.session_dir / "session_meta.json", "w", encoding="utf-8") as f:
+        with open(metadata_dir / "session_meta.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
         
         # Copy calibration
         if self.gaze_manager.controller.last_calibration_path is not None:
-            shutil.copytree(self.gaze_manager.controller.last_calibration_path, self.session_dir/"calibration", dirs_exist_ok=True)
+            shutil.copytree(self.gaze_manager.controller.last_calibration_path, metadata_dir/"calibration", dirs_exist_ok=True)
 
         # Save display settings
         if self.gaze_manager.controller.last_display_settings is not None:
-            with open(self.session_dir/"display_settings.json", "w") as f:
+            with open(metadata_dir/"display_settings.json", "w") as f:
                 f.write(self.gaze_manager.controller.last_display_settings.model_dump_json(indent=2))
 
         try:
             if is_success:
-                clean_name = f"{self.participant_id}_{self.scenario_id}"
-                new_path = self.experiment_root / clean_name
-                counter = 1
-                while new_path.exists():
-                    new_path = self.experiment_root / f"{clean_name}_v{counter}"
-                    counter += 1
-                self.session_dir.rename(new_path)
+                self._correct_folder_structure()
             else:
                 new_path = self.session_dir.with_name(f"{self.session_dir.name}_aborted")
                 self.session_dir.rename(new_path)
