@@ -21,3 +21,4 @@ class Theme:
     FONT_H2 = ("Helvetica Neue", 14, "bold")
     FONT_BODY = ("Helvetica Neue", 12)
     FONT_MONO = ("Menlo", 12)
+    FONT_TINY = ("Consolas", 10)

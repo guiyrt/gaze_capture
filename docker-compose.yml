@@ -16,10 +16,12 @@ services:
       # USB
       - /dev/bus/usb:/dev/bus/usb
       - /run/udev:/run/udev:ro
-      
+
+      # SSH
+      - ~/.ssh:/home/appuser/.ssh:ro
+
       # --- Data Persistence ---
-      - /home/ternuser/zhaw/data/:/app/data/
-      # - /home/regd/AWARE/apr25/:/app/data/
+      - ./data/:/app/data/
 
     # --- GUI Forwarding Configuration ---
     environment:
@@ -27,11 +29,15 @@ services:
       - PUID=1000
       - PGID=1000
 
-      - DISPLAY=${DISPLAY}
+      - DISPLAY=${DISPLAY:-:0}
+
+      - GAZE__ORION_HOST=tern@192.168.68.69
+      - GAZE__ORION_POLARIS_DB_DIR=/home/tern/git/polaris-aware/event-recordings
+
       - GAZE__DATA_DIR=/app/data
       - GAZE__NATS_HOST=nats://localhost:4222
       - GAZE__LOGGING__LEVEL=INFO
-      - GAZE__USE_DUMMY_MODE=false
+      - GAZE__USE_DUMMY_MODE=true
 
       # Screen dimensions
       # - GAZE__DISPLAY_AREA__HEIGHT_PX=1600 

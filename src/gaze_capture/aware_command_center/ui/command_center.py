@@ -21,7 +21,7 @@ class CommandCenterUI(tk.Tk):
         self.loop = loop
         
         self.title("Gaze Capture Command Center")
-        self.geometry("800x1050")
+        self.geometry("800x1100")
         self.configure(bg=Theme.BG_WINDOW, padx=20, pady=20)
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         
@@ -29,6 +29,9 @@ class CommandCenterUI(tk.Tk):
         self._service_timers: dict[str, tk.Label] = {}
         self._service_starts: dict[str, tk.Button] = {}
         self._service_stops: dict[str, HoldButton] = {}
+
+        self._sync_buttons: dict[str, tk.Button] = {}
+        self._sync_labels: dict[str, tk.Label] = {}
 
         self._build_ui()
 
@@ -111,8 +114,57 @@ class CommandCenterUI(tk.Tk):
         self.btn_find_tracker = tk.Button(calib_frame, text="Find Tracker", bg=Theme.WARNING, fg="black", bd=0, width=15, command=self.on_find_tracker)
         self.btn_find_tracker.pack(side="left", padx=10)
 
-        # 3. Services Card
-        card3 = self._create_card(self, "3. Services Control")
+        # 3. External Equipment & Data Card
+        card_ext = self._create_card(self, "3. External Equipment & Data")
+        row_ext = tk.Frame(card_ext, bg=Theme.BG_CARD)
+        row_ext.pack(fill="x", pady=5)
+
+        # A. LOGGING SECTION (GoPro & Biometrics)
+        for label in self.orchestrator.settings.external_equiment_to_sync:
+            col = tk.Frame(row_ext, bg=Theme.BG_CARD)
+            col.pack(side="left", expand=True, fill="both", padx=5)
+            
+            btn = tk.Button(
+                col, text=f"Log {label} Start", 
+                bg=Theme.BG_INPUT, fg=Theme.TEXT_MAIN, 
+                bd=0, height=1, font=Theme.FONT_BODY,
+                state="disabled",
+                command=lambda l=label: self.on_log_external_time(l)
+            )
+            btn.pack(fill="x")
+            self._sync_buttons[label] = btn
+            
+            lbl = tk.Label(col, text="HH:MM:SS", font=Theme.FONT_TINY, bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED)
+            lbl.pack(pady=(5, 0))
+            self._sync_labels[label] = lbl
+
+        # B. VERTICAL SEPARATOR
+        # We use a 2px wide frame with a slightly darker background to create a visual divider
+        separator = tk.Frame(row_ext, bg=Theme.BG_WINDOW, width=2)
+        separator.pack(side="left", fill="y", padx=20)
+
+        # C. FETCH SECTION (Polaris DB)
+        col_polaris = tk.Frame(row_ext, bg=Theme.BG_CARD)
+        col_polaris.pack(side="left", expand=True, fill="both", padx=5)
+
+        self.btn_fetch_polaris_events = tk.Button(
+            col_polaris, text="Fetch Polaris Events", 
+            bg=Theme.BG_INPUT, fg=Theme.TEXT_MAIN, 
+            bd=0, height=1, font=Theme.FONT_BODY,
+            state="disabled", 
+            command=self.on_fetch_polaris_db
+        )
+        self.btn_fetch_polaris_events.pack(fill="x")
+
+        self.lbl_polaris_filename = tk.Label(
+            col_polaris, text="N/A", 
+            font=Theme.FONT_TINY, bg=Theme.BG_CARD, 
+            fg=Theme.TEXT_MUTED, wraplength=180
+        )
+        self.lbl_polaris_filename.pack(pady=(5, 0))
+
+        # 4. Services Card
+        card3 = self._create_card(self, "4. Services Control")
         srv_frame = tk.Frame(card3, bg=Theme.BG_CARD)
         srv_frame.pack(fill="x")
         
@@ -148,12 +200,8 @@ class CommandCenterUI(tk.Tk):
         HoldButton(global_frame, text="HOLD TO STOP ALL", height=35, bg_color=Theme.BG_INPUT, fill_color=Theme.DANGER, 
                    command=lambda: self._run_async(self.orchestrator.stop_all())).pack(side="left", fill="x", expand=True, padx=5)
 
-        # 4. Rogue Files Card
-        card4 = self._create_card(self, "4. External Files")
-        tk.Button(card4, text="Fetch Rogue Files", bg=Theme.BG_INPUT, fg=Theme.TEXT_MAIN, bd=0, command=self.on_fetch_rogue).pack(anchor="w")
-
-        # 5. Finalize Card
-        card5 = self._create_card(self, "5. Post-Session Actions")
+        # 6. Finalize Card
+        card5 = self._create_card(self, "6. Post-Session Actions")
         btn_frame = tk.Frame(card5, bg=Theme.BG_CARD)
         btn_frame.pack(fill="x", pady=(0, 10))
         
@@ -193,6 +241,15 @@ class CommandCenterUI(tk.Tk):
                 
         self._run_async(self.orchestrator.initialize(), _on_done)
 
+    def on_log_external_time(self, label: str):
+        # 2. Log the time
+        dt = self.orchestrator.log_external_start(label)
+        
+        # 3. Update UI
+        time_str = dt.astimezone().strftime("%H:%M:%S") # Show local time for the operator
+        self._sync_labels[label].config(text=f"{time_str}", fg=Theme.SUCCESS)
+        self._sync_buttons[label].config(bg=Theme.SUCCESS, fg="black", text=f"{label} Active")
+
     def on_set_ids(self):
         pid = self.ent_pid.get().strip()
         sid = self.ent_sid.get().strip()
@@ -205,6 +262,14 @@ class CommandCenterUI(tk.Tk):
             if calib_loaded:
                 msg += f"\nAuto-loaded cached calibration for {pid}."
             messagebox.showinfo("Setup", msg)
+
+        # Activate Sync Buttons and turn them Yellow
+        for label, btn in self._sync_buttons.items():
+            btn.config(state="normal", bg=Theme.WARNING, fg="black", text=f"Log {label} Start")
+            self._sync_labels[label].config(text="HH:MM:SS", fg=Theme.WARNING)
+        
+        self.btn_fetch_polaris_events.config(state="normal", bg=Theme.WARNING, fg="black", text="Fetch Polaris events")
+        self.lbl_polaris_filename.config(text="N/A", fg=Theme.WARNING)
 
         self._run_async(self.orchestrator.set_experiment_ids(pid, sid), _on_ids_set)
 
@@ -239,8 +304,47 @@ class CommandCenterUI(tk.Tk):
         view = CalibrationWindow(self, self.orchestrator.settings.display_area.width_px, self.orchestrator.settings.display_area.height_px)
         self._run_async(self.orchestrator.show_calibration_results(view))
 
-    def on_fetch_rogue(self):
-        messagebox.showinfo("External Files", "Feature pending implementation.")
+    def on_fetch_polaris_db(self):
+        self.btn_fetch_polaris_events.config(state="disabled", text="Connecting...")
+        self.lbl_polaris_filename.config(text="Searching remote host...", fg=Theme.WARNING)
+
+        def _on_file_downloaded(result):
+            success, msg = result
+            if success:
+                self.btn_fetch_polaris_events.config(state="normal", bg=Theme.SUCCESS, fg="black", text="Fetched ✓")
+                # Add a checkmark to the current label text
+                current_name = self.lbl_polaris_filename.cget("text")
+                self.lbl_polaris_filename.config(fg=Theme.SUCCESS)
+                messagebox.showinfo("Success", msg)
+            else:
+                self.btn_fetch_polaris_events.config(state="normal", bg=Theme.WARNING, text="Retry Fetch")
+                self.lbl_polaris_filename.config(text="Transfer Failed", fg=Theme.DANGER)
+                messagebox.showerror("Download Failed", msg)
+
+        def _on_file_checked(result):
+            success, payload = result
+            if not success:
+                self.btn_fetch_polaris_events.config(state="normal", bg=Theme.WARNING, text="Fetch Polaris Events")
+                self.lbl_polaris_filename.config(text="File not found", fg=Theme.DANGER)
+                messagebox.showerror("Check Failed", payload)
+                return
+
+            filename = payload
+            self.lbl_polaris_filename.config(text=filename, fg=Theme.WARNING)
+            
+            confirm = messagebox.askyesno(
+                "Confirm File", 
+                f"Found latest file:\n{filename}\n\nDownload and compress?"
+            )
+            
+            if confirm:
+                self.btn_fetch_polaris_events.config(state="disabled", text="Transferring...")
+                self._run_async(self.orchestrator.fetch_and_zip_remote_file(filename), _on_file_downloaded)
+            else:
+                self.btn_fetch_polaris_events.config(state="normal", bg=Theme.WARNING, text="Fetch Polaris Events")
+                self.lbl_polaris_filename.config(text="N/A", fg=Theme.WARNING)
+
+        self._run_async(self.orchestrator.get_latest_remote_filename(), _on_file_checked)
 
     def on_mark_session(self, success: bool):
         # 1. Grab notes from the text box
@@ -249,15 +353,30 @@ class CommandCenterUI(tk.Tk):
         is_ok, msg = self.orchestrator.mark_session(is_success=success, notes=notes)
         
         if is_ok:
-            # 2. Clear UI Inputs
-            self.ent_pid.delete(0, tk.END)
-            self.ent_sid.delete(0, tk.END)
+            if success:
+                self.ent_pid.delete(0, tk.END)
+                self.ent_sid.delete(0, tk.END)
+
+                # Reset buttons
+                for label, btn in self._sync_buttons.items():
+                    btn.config(state="disabled", bg=Theme.BG_INPUT, fg=Theme.TEXT_MAIN, text=f"Log {label} Start")
+                    self._sync_labels[label].config(text="N/A", fg=Theme.TEXT_MUTED)
+
+                self.btn_fetch_polaris_events.config(state="disabled", bg=Theme.BG_INPUT, fg=Theme.TEXT_MAIN, text="Fetch Polaris DB")
+                self.lbl_polaris_filename.config(text="N/A", fg=Theme.TEXT_MUTED)
+            else:
+                # Activate Sync Buttons and turn them Yellow
+                for label, btn in self._sync_buttons.items():
+                    btn.config(state="normal", bg=Theme.WARNING, fg="black", text=f"Log {label} Start")
+                    self._sync_labels[label].config(text="HH:MM:SS", fg=Theme.WARNING)
+                
+                self.btn_fetch_polaris_events.config(state="normal", bg=Theme.WARNING, fg="black", text="Fetch Polaris events")
+                self.lbl_polaris_filename.config(text="N/A", fg=Theme.WARNING)
+            
             self.txt_notes.delete("1.0", tk.END)
             
-            # 3. Explicitly clear the Orchestrator's internal memory!
-            self.orchestrator.participant_id = None
-            self.orchestrator.scenario_id = None
-            
+
+
             messagebox.showinfo("Session Marked", msg)
         else:
             messagebox.showwarning("Warning", msg)

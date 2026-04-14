@@ -27,6 +27,7 @@ class ExperimentOrchestrator:
         self.scenario_id: str | None = None
 
         self.services: dict[str, BaseService] = {s.name: s for s in services}
+        self.external_start_times: dict[str, list[datetime]] = defaultdict(list)
         
         self.experiment_root: Path = self.settings.data_dir
         self.experiment_root.mkdir(parents=True, exist_ok=True)
@@ -61,8 +62,8 @@ class ExperimentOrchestrator:
     async def initialize(self) -> bool:
         """Called at app startup ONLY to connect hardware using pre-loaded settings."""
         return await self.gaze_manager.connect(self.settings.display_area)
-
-    async def set_experiment_ids(self, pid: str, sid: str) -> None:
+    
+    def create_session_folder(self, pid: str, sid: str) -> None:
         self.participant_id = pid
         self.scenario_id = sid
         self.session_id = f"{self.run_id}__{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -74,6 +75,9 @@ class ExperimentOrchestrator:
         (self.session_dir / "taskRecognition").mkdir(parents=True, exist_ok=True)
         (self.session_dir / "videoRecordings").mkdir(parents=True, exist_ok=True)
         (self.session_dir / "metadata").mkdir(parents=True, exist_ok=True)
+
+    async def set_experiment_ids(self, pid: str, sid: str) -> None:
+        self.create_session_folder(pid, sid)
 
         cache_dir = self.experiment_root / ".calibrations" / pid
         if cache_dir.exists():
@@ -120,6 +124,100 @@ class ExperimentOrchestrator:
 
     def get_service_durations(self) -> dict[str, str]:
         return {name: svc.get_duration_str() for name, svc in self.services.items()}
+    
+    # --- Copy polaris .db file ---
+
+    async def get_latest_remote_filename(self) -> tuple[bool, str]:
+        """Queries the remote host for the newest file with a 5-second timeout."""
+        try:
+            ssh_opts = "-o ConnectTimeout=5 -o StrictHostKeyChecking=no"
+
+            # The regex:
+            # ^events-           Starts with 'events-'
+            # [0-9]{4}-[0-9]{2}-[0-9]{2}  Date (YYYY-MM-DD)
+            # T                  The 'T' separator
+            # [0-9]{2}:[0-9]{2}:[0-9]{2}  Time (HH:MM:SS)
+            # \.db$              Ends exactly in '.db'
+            regex = r"^events-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.db$"
+            
+            # Get last edited file that matches regex
+            find_cmd = f"ls -t '{self.settings.orion_polaris_db_dir}' | grep -E '{regex}' | head -n 1"
+            
+            proc = await asyncio.create_subprocess_shell(
+                f"ssh {ssh_opts} {self.settings.orion_host} \"{find_cmd}\"",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            # 10 second absolute timeout for the whole operation
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10.0)
+            
+            if proc.returncode != 0:
+                # Note: grep returns exit code 1 if no matches are found, 
+                # we should handle that as "No files" rather than "SSH Error"
+                if proc.returncode == 1:
+                    return False, "No .db files found."
+                
+                err = stderr.decode('utf-8').strip()
+                return False, f"Remote check failed: {err}"
+                
+            filename = stdout.decode('utf-8').strip()
+            if not filename:
+                return False, "No .db files found."
+                
+            return True, filename
+            
+        except asyncio.TimeoutError:
+            return False, "Connection to simulator timed out."
+        except Exception as e:
+            return False, str(e)
+
+    async def fetch_and_zip_remote_file(self, filename: str) -> tuple[bool, str]:
+        """Downloads the specific file via SCP and zips it locally."""
+        if not self.session_dir:
+            return False, "No active session."
+
+        try:
+            sim_dir = self.session_dir / "simulator"
+            temp_dest = sim_dir / filename
+            final_zip = sim_dir / f"simdata__{filename}.zip"
+
+            # 1. Transfer via SCP
+            scp_opts = "-o ConnectTimeout=5 -o StrictHostKeyChecking=no"
+            scp_cmd = f"scp -q {scp_opts} '{self.settings.orion_host}:{self.settings.orion_polaris_db_dir}/{filename}' '{temp_dest}'"
+            
+            proc_scp = await asyncio.create_subprocess_shell(scp_cmd)
+            # 5 minute timeout for a 1GB file over local network is usually safe
+            await asyncio.wait_for(proc_scp.wait(), timeout=300.0) 
+            
+            if proc_scp.returncode != 0:
+                return False, "File transfer failed or was interrupted."
+
+            # 2. Compress locally
+            zip_cmd = f"zip -j -q '{final_zip}' '{temp_dest}'"
+            proc_zip = await asyncio.create_subprocess_shell(zip_cmd)
+            await proc_zip.wait()
+            
+            if proc_zip.returncode != 0:
+                return False, "Local ZIP compression failed."
+
+            # 3. Cleanup
+            if temp_dest.exists():
+                temp_dest.unlink()
+
+            return True, f"Successfully saved as {final_zip.name}"
+
+        except asyncio.TimeoutError:
+            return False, "Operation timed out. The file might be too large or connection dropped."
+        except Exception as e:
+            logger.error(f"Error fetching file: {e}", exc_info=True)
+            return False, f"Unexpected error: {e}"
+        
+    def log_external_start(self, label: str) -> datetime:
+        """Captures current UTC time for an external device."""
+        now = datetime.now(timezone.utc)
+        self.external_start_times[label].append(now)
+        return now
 
     # --- Service Orchestration ---
 
@@ -212,7 +310,11 @@ class ExperimentOrchestrator:
             "participant": self.participant_id,
             "scenario": self.scenario_id,
             "notes": notes,
-            "end_timestamp": datetime.now(timezone.utc).isoformat()
+            "end_timestamp": datetime.now(timezone.utc).isoformat(),
+            "external_sync": {
+                label: [dt.isoformat() for dt in dts]
+                for label, dts in self.external_start_times.items()
+            }
         }
         with open(metadata_dir / "session_meta.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
@@ -229,16 +331,18 @@ class ExperimentOrchestrator:
         try:
             if is_success:
                 self._correct_folder_structure()
+                self.session_id, self.participant_id, self.scenario_id = None, None, None
             else:
                 new_path = self.session_dir.with_name(f"{self.session_dir.name}_aborted")
                 self.session_dir.rename(new_path)
+                self.create_session_folder(self.participant_id, self.scenario_id)
                 
-            self.session_id = None
-            return True, "Session marked and directory renamed successfully."
+            self.external_start_times = defaultdict(list)
+            return True, "Session marked successfully."
         except Exception as e:
             logger.error(f"Failed to rename session directory: {e}")
             return False, f"Failed to rename directory: {e}"
-    
+
     async def shutdown(self):
         """Called when the UI closes to safely kill all tasks."""
         await self.stop_all() # Ensure recordings are stopped

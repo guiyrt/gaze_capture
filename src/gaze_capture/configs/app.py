@@ -59,6 +59,14 @@ class AppSettings(BaseSettings):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     __version__: str = version("gaze-capture")
 
+    # AWARE
+    orion_host: str
+    orion_polaris_db_dir: str
+
+    # External hardware
+    external_equiment_to_sync: list[str] = ["GoPro", "Biometrics"]
+
+
     model_config = SettingsConfigDict(
         env_prefix="GAZE__",
         env_file=".env",
