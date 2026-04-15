@@ -259,13 +259,7 @@ class ExperimentOrchestrator:
         # Pass 1: Collect and group files by (parent_directory, X_part)
         for filepath in self.session_dir.rglob("*"):
             if filepath.is_file():
-                # Skip metadata folder
-                rel_parts = filepath.relative_to(self.session_dir).parts
-                if rel_parts and rel_parts[0] == "metadata":
-                    continue
-
                 x_part = filepath.stem.split("__")[0]
-                
                 grouped_files[x_part].append(filepath)
 
         # Pass 2: Rename files with sequential suffixes if needed
@@ -316,16 +310,16 @@ class ExperimentOrchestrator:
                 for label, dts in self.external_start_times.items()
             }
         }
-        with open(metadata_dir / "session_meta.json", "w", encoding="utf-8") as f:
+        with open(metadata_dir / "session.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
         
         # Copy calibration
         if self.gaze_manager.controller.last_calibration_path is not None:
-            shutil.copytree(self.gaze_manager.controller.last_calibration_path, metadata_dir/"calibration", dirs_exist_ok=True)
+            shutil.copytree(self.gaze_manager.controller.last_calibration_path, metadata_dir / "calibration", dirs_exist_ok=True)
 
         # Save display settings
         if self.gaze_manager.controller.last_display_settings is not None:
-            with open(metadata_dir/"display_settings.json", "w") as f:
+            with open(metadata_dir / "display_settings.json", "w") as f:
                 f.write(self.gaze_manager.controller.last_display_settings.model_dump_json(indent=2))
 
         try:

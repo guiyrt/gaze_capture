@@ -21,7 +21,7 @@ services:
       - ~/.ssh:/home/appuser/.ssh:ro
 
       # --- Data Persistence ---
-      - ./data/:/app/data/
+      - ~/data/:/app/data/
 
     # --- GUI Forwarding Configuration ---
     environment:
@@ -40,14 +40,10 @@ services:
       - GAZE__USE_DUMMY_MODE=true
 
       # Screen dimensions
-      # - GAZE__DISPLAY_AREA__HEIGHT_PX=1600 
-      # - GAZE__DISPLAY_AREA__WIDTH_PX=2400
-      # - GAZE__DISPLAY_AREA__WIDTH_MM=310.0
-      # - GAZE__DISPLAY_AREA__HEIGHT_MM=210.0
-      - GAZE__DISPLAY_AREA__HEIGHT_PX=2160 
-      - GAZE__DISPLAY_AREA__WIDTH_PX=3840 
-      - GAZE__DISPLAY_AREA__WIDTH_MM=937.20
-      - GAZE__DISPLAY_AREA__HEIGHT_MM=527.17   
+      - GAZE__DISPLAY_AREA__HEIGHT_PX=2160 # 1600
+      - GAZE__DISPLAY_AREA__WIDTH_PX=3840 # 2400
+      - GAZE__DISPLAY_AREA__WIDTH_MM=937.20 # 310.0
+      - GAZE__DISPLAY_AREA__HEIGHT_MM=527.17 # 210.0
       - GAZE__DISPLAY_AREA__VERTICAL_OFFSET_MM=0
       - GAZE__DISPLAY_AREA__HORIZONTAL_OFFSET_MM=0
       - GAZE__DISPLAY_AREA__DEPTH_OFFSET_MM=0
