@@ -35,7 +35,7 @@ services:
       - GAZE__ORION_POLARIS_DB_DIR=/home/tern/git/polaris-aware/event-recordings
 
       - GAZE__DATA_DIR=/app/data
-      - GAZE__NATS_HOST=nats://localhost:4222
+      - GAZE__NATS_HOST=nats://127.0.0.1:4222
       - GAZE__LOGGING__LEVEL=INFO
       - GAZE__USE_DUMMY_MODE=true
 

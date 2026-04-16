@@ -2,42 +2,61 @@ import asyncio
 import threading
 import logging
 import nats
+from nats.errors import NoServersError
 
 from gaze_capture.core.manager import EyeTrackingManager
 from gaze_capture.ui.main_window import GazeCaptureApp
-from gaze_capture.configs.app import AppSettings
+from gaze_capture.configs.app import AppSettings, LoggingConfig
 from gaze_capture.controllers import TobiiController, DummyController
 
-async def setup_nats(host: str) -> nats.NATS:
-    """Robust top-level NATS connection."""
-    nc = nats.NATS()
-    
-    async def disconnected_cb():
-        logging.warning("NATS disconnected. Auto-reconnecting...")
-        
-    async def reconnected_cb():
-        logging.info("NATS reconnected.")
+logger = logging.getLogger(__name__)
 
+async def setup_nats(host: str) -> nats.NATS:
+    """
+    Initializes NATS with custom logging to prevent traceback spam.
+    """
+    nc = nats.NATS()
+
+    async def disconnected_cb():
+        logger.warning("NATS: Connection lost. Client is in buffering mode...")
+
+    async def reconnected_cb():
+        logger.info(f"NATS: Connection restored to {nc.connected_url.netloc}")
+
+    async def error_cb(e):
+        # This catches background errors (like heartbeats failing)
+        logger.error(f"NATS Internal Error: {e}")
+
+    async def closed_cb():
+        logger.info("NATS: Connection closed.")
+
+    # Connection Loop
     while True:
         try:
             await nc.connect(
                 host,
                 allow_reconnect=True,
-                max_reconnect_attempts=-1,
-                reconnect_time_wait=2,
+                max_reconnect_attempts=-1, # Infinite reconnection
+                reconnect_time_wait=2, # Wait 2s between attempts
                 disconnected_cb=disconnected_cb,
-                reconnected_cb=reconnected_cb
+                reconnected_cb=reconnected_cb,
+                error_cb=error_cb,
+                closed_cb=closed_cb,
             )
-            logging.info("NATS Connected.")
+            logger.info(f"NATS: Initial connection established to {host}")
             return nc
-        except Exception as e:
-            logging.error(f"NATS connection failed: {e}. Retrying in 5s...")
+        except (asyncio.TimeoutError, NoServersError, OSError) as e:
+            logger.warning(f"NATS: Waiting for server at {host}... ({e})")
             await asyncio.sleep(5)
+
+def setup_logger(settings: LoggingConfig):
+    logging.getLogger("nats.aio.client").setLevel(logging.CRITICAL)
+    logging.getLogger("nats").setLevel(logging.ERROR)
+    logging.basicConfig(level=settings.level, format=settings.format)
 
 def main():
     settings = AppSettings()
-    logging.basicConfig(level=settings.logging.level, format=settings.logging.format)
-    logger = logging.getLogger(__name__)
+    setup_logger(settings.logging)
 
     # Create the high-performance background loop
     loop = asyncio.new_event_loop()
