@@ -136,9 +136,9 @@ class ExperimentOrchestrator:
             # ^events-           Starts with 'events-'
             # [0-9]{4}-[0-9]{2}-[0-9]{2}  Date (YYYY-MM-DD)
             # T                  The 'T' separator
-            # [0-9]{2}:[0-9]{2}:[0-9]{2}  Time (HH:MM:SS)
+            # [0-9]{2}_[0-9]{2}_[0-9]{2}  Time (HH_MM_SS)
             # \.db$              Ends exactly in '.db'
-            regex = r"^events-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.db$"
+            regex = r"^events-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}_[0-9]{2}_[0-9]{2}\.db$"
             
             # Get last edited file that matches regex
             find_cmd = f"ls -t '{self.settings.orion_polaris_db_dir}' | grep -E '{regex}' | head -n 1"
