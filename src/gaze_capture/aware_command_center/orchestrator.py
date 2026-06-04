@@ -86,7 +86,7 @@ class ExperimentOrchestrator:
             # Force GazeService to re-evaluate its state now that it has calibration
             if success:
                 logger.info(f"Auto-loading cached calibration for {pid}")
-                self.services["gaze"].refresh_state()
+                self.services["Eye Tracker"].refresh_state()
 
             return success
             

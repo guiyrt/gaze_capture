@@ -62,7 +62,7 @@ class TobiiSource(GazeSource):
 
             # Create object
             model = GazeData(
-                timestamp_ms=self._time_offset.to_utc_ms(data["system_time_stamp"]),
+                timestamp=self._time_offset.to_utc_ms(data["system_time_stamp"]),
                 device_timestamp_us=data["device_time_stamp"],
                 system_timestamp_us=data["system_time_stamp"],
                 gaze_x_px=mid_x_px,

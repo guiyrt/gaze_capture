@@ -20,7 +20,7 @@ class ParquetSink(GazeSink):
     """
     _SCHEMA: Final[pa.Schema] = pa.schema([
         # Unix Epoch
-        ("timestamp_ms", pa.timestamp('ms')),
+        ("timestamp", pa.timestamp('ms', tz='UTC')),
         
         # Derived Midpoint Data
         ("gaze_x_px", pa.int16()),
@@ -140,7 +140,7 @@ class ParquetSink(GazeSink):
         size = len(batch)
         
         # Pre-allocate flat columns
-        timestamp_ms, device_ts, system_ts = [None] * size, [None] * size, [None] * size
+        timestamp, device_ts, system_ts = [None] * size, [None] * size, [None] * size
         m_x_px, m_y_px, m_x, m_y = [None] * size, [None] * size, [None] * size, [None] * size
         l_x, l_y, r_x, r_y = [None] * size, [None] * size, [None] * size, [None] * size
         l_pup, r_pup = [None] * size, [None] * size
@@ -148,7 +148,7 @@ class ParquetSink(GazeSink):
         l_origin, r_origin = [None] * size, [None] * size
 
         for i, d in enumerate(batch):
-            timestamp_ms[i] = d.timestamp_ms
+            timestamp[i] = d.timestamp
             device_ts[i] = d.device_timestamp_us
             system_ts[i] = d.system_timestamp_us
             
@@ -174,7 +174,7 @@ class ParquetSink(GazeSink):
             
         table = pa.Table.from_arrays(
             [
-                pa.array(timestamp_ms, type=pa.timestamp('ms')),
+                pa.array(timestamp, type=pa.timestamp('ms', tz='UTC')),
                 pa.array(m_x_px, type=pa.int16()),
                 pa.array(m_y_px, type=pa.int16()),
                 pa.array(m_x, type=pa.float32()),

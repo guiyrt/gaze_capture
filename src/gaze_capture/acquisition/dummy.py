@@ -46,7 +46,7 @@ class DummySource(GazeSource):
                 y_px = int(y * self.screen_height)
 
             model = GazeData(
-                timestamp_ms=int(time.time() * 1_000),
+                timestamp=int(time.time() * 1_000),
                 device_timestamp_us=(now_ns - t0_ns) // 1_000,
                 system_timestamp_us=now_ns // 1_000,
                 gaze_x_px=x_px,

@@ -30,7 +30,7 @@ class NATSSink(GazeSink):
             p = self._proto
             p.Clear()
 
-            p.timestamp.FromMilliseconds(data.timestamp_ms)
+            p.timestamp.FromMilliseconds(data.timestamp)
             p.x = data.gaze_x_px if is_valid else -1
             p.y = data.gaze_y_px if is_valid else -1
             p.is_valid = is_valid

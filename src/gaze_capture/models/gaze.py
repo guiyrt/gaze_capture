@@ -7,7 +7,7 @@ class GazeData:
     Contains raw sensor data and processed pixel coordinates for midpoint.
     """
     # Precise Unix Epoch in milliseconds (derived from PC-Hardware sync)
-    timestamp_ms: int
+    timestamp: int
 
     # Calculated Midpoint (Derived)
     gaze_x_px: int | None

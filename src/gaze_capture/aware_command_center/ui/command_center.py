@@ -177,7 +177,7 @@ class CommandCenterUI(tk.Tk):
             ind.pack(side="left", padx=5)
             self._service_indicators[name] = ind
             
-            tk.Label(row, text=name.capitalize().ljust(15), font=Theme.FONT_MONO, bg=Theme.BG_CARD, fg=Theme.TEXT_MAIN, width=15, anchor="w").pack(side="left")
+            tk.Label(row, text=name, font=Theme.FONT_MONO, bg=Theme.BG_CARD, fg=Theme.TEXT_MAIN, width=15, anchor="w").pack(side="left")
             
             timer = tk.Label(row, text="00:00", font=Theme.FONT_MONO, bg=Theme.BG_CARD, fg=Theme.TEXT_MUTED, width=8)
             timer.pack(side="left", padx=10)

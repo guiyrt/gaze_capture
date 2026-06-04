@@ -8,7 +8,7 @@ class GazeService(BaseService):
     """Stateless Adapter bridging EyeTrackingManager to the Service interface."""
     def __init__(self, manager: EyeTrackingManager):
         # Do not call super() to avoid inheriting internal state logic
-        self.name = "gaze"
+        self.name = "Eye Tracker"
         self.manager = manager
         self._record_start_time = 0.0
         self._was_recording = False

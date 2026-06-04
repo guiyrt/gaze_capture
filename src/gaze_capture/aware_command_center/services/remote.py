@@ -83,7 +83,7 @@ class RemoteService(BaseService):
         payload = json.dumps({"cmd": "start", "session_id": session_id}).encode()
 
         try:
-            msg = await self.nc.request(self.cmds_subject, payload, timeout=2.0)
+            msg = await self.nc.request(self.cmds_subject, payload, timeout=10.0)
             response = json.loads(msg.data.decode())
             
             if response.get("status") == "ok":
@@ -104,7 +104,7 @@ class RemoteService(BaseService):
         payload = json.dumps({"cmd": "stop"}).encode()
 
         try:
-            msg = await self.nc.request(self.cmds_subject, payload, timeout=2.0)
+            msg = await self.nc.request(self.cmds_subject, payload, timeout=10.0)
             response = json.loads(msg.data.decode())
             
             # State will automatically flip to READY on the next heartbeat
